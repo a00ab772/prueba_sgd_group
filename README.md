@@ -514,7 +514,7 @@ La infraestructura de test está contenida en el archivo test_main.py:
 
 Los componentes principales de este archivo son:
 
-* La función setUpModule() - Mockea los clientes de los servicios de AWS y del cluster local de Spark
+* La función setUpModule() - Mockea los servicios de AWS y el cluster local de Spark
 
 ![setUpModule.png](imagenes/setUpModule.png)
 
@@ -522,7 +522,7 @@ Los componentes principales de este archivo son:
 
 ![tearDownModule.png](imagenes/tearDownModule.png)
 
-* La clase TestBase - Inicializa la infraestructura mock de componentes AWS y la configuracion de Spark y Hadoop en modo local:
+* La clase TestBase - Inicializa los clientes que acceden a los componentes AWS y al cluster local de Spark y Hadoop:
 
 ![TestBase .png](imagenes/TestBase.png)
 
