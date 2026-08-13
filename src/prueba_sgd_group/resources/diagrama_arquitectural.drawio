@@ -1,0 +1,58 @@
+<mxfile host="drawio-plugin" modified="2026-08-13T04:53:41.995Z" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36" etag="mfoIx3ohc9FjcPuJ1CdO" version="22.1.22" type="embed">
+  <diagram name="Página-1" id="9QoK7wz8cVVx-Ci3eJR7">
+    <mxGraphModel dx="1346" dy="754" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="perimeter_aws" value="AWS Cloud" style="swimlane;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;fontSize=14;" parent="1" vertex="1">
+          <mxGeometry x="300" y="100" width="620" height="690" as="geometry" />
+        </mxCell>
+        <mxCell id="4" value="AWS Secrets Manager" style="aspect=fixed;sketch=0;html=1;dashed=0;whitespace=wrap;fillColor=#2875E2;strokeColor=#ffffff;points=[[0.005,0.63,0],[0.1,0.2,0],[0.9,0.2,0],[0.5,0,0],[0.995,0.63,0],[0.72,0.99,0],[0.5,1,0],[0.28,0.99,0]];shape=mxgraph.kubernetes.icon2;kubernetesLabel=1;prIcon=secret;verticalLabelPosition=bottom;verticalAlign=top;align=center;fontSize=10;fontStyle=1;" parent="perimeter_aws" vertex="1">
+          <mxGeometry x="480" y="370" width="104.17" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="5" value="Amazon DynamoDB" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;strokeColor=#ffffff;fillColor=#232F3E;dashed=0;verticalLabelPosition=middle;verticalAlign=bottom;align=center;html=1;whiteSpace=wrap;fontSize=10;fontStyle=1;spacing=3;shape=mxgraph.aws4.productIcon;prIcon=mxgraph.aws4.dynamodb;" parent="perimeter_aws" vertex="1">
+          <mxGeometry x="270" y="580" width="80" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="6" value="Amazon S3" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;strokeColor=#ffffff;fillColor=#232F3E;dashed=0;verticalLabelPosition=middle;verticalAlign=bottom;align=center;html=1;whiteSpace=wrap;fontSize=10;fontStyle=1;spacing=3;shape=mxgraph.aws4.productIcon;prIcon=mxgraph.aws4.s3;" parent="perimeter_aws" vertex="1">
+          <mxGeometry x="270" y="160" width="80" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="7" value="Amazon MWAA&#xa;(Apache Airflow)" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#E7157B;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=1;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.managed_workflows_for_apache_airflow;" parent="perimeter_aws" vertex="1">
+          <mxGeometry x="30" y="381" width="78" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="9" value="Amazon EMR&lt;br&gt;(Spark)" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#8C4FFF;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.emr;" vertex="1" parent="perimeter_aws">
+          <mxGeometry x="272" y="381" width="78" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_emr_to_s3" value="Lee CSV / &lt;br&gt;Escribe resultados&amp;nbsp;&lt;span style=&quot;font-family: &amp;quot;JetBrains Mono&amp;quot;, monospace; color: rgb(8, 8, 8);&quot;&gt;cuando&lt;br&gt;out_type == &quot;table&quot;&lt;/span&gt;" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;" parent="perimeter_aws" source="9" target="6" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="310" y="370" as="sourcePoint" />
+            <mxPoint x="340" y="270" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_mwaa_to_emr" value="Dispara Tarea DAG" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" parent="perimeter_aws" source="7" target="9" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="270" y="420" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_emr_to_secrets" value="Obtiene Credenciales" style="endArrow=classic;html=1;rounded=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="perimeter_aws" source="9" target="4" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="350" y="420" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_emr_to_dynamo" value="Escribe resultados&lt;br&gt;cuando out_type == &quot;table&quot;&#39;" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitPerimeter=0;" parent="perimeter_aws" source="9" target="5" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="310" y="470" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_mwaa_to_s3" value="Lee CSV" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="7" target="6" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="local_files" value="Ficheros Locales&#xa;(data*.csv, metadata.json)" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#fff2cc;strokeColor=#d6b656;align=center;" parent="1" vertex="1">
+          <mxGeometry x="90" y="265" width="160" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_local_to_s3" value="Sube ficheros csv y metadatos a s3 bucket" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="local_files" target="6" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
