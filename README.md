@@ -549,3 +549,39 @@ Los componentes principales de este archivo son:
 ![lanzamiento_tests.png](imagenes/lanzamiento_tests.png)
 
 ![resultado_tests.png](imagenes/resultado_tests.png)
+
+## Porcentaje de cobertura de código en las pruebas
+
+pytest-cov permite generar un reporte html que indica cual es la cobertura de código que tiene nuestra batería de test:
+
+```shell
+(prueba_sgd_group) PS C:\Users\user\Documents\PycharmProjects\prueba_sgd_group> pytest --cov=src/prueba_sgd_group --cov-report=html:test/html test/test_main.py -p no:cacheprovider
+====================================================================================================== test session starts =======================================================================================================
+platform win32 -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0
+rootdir: C:\Users\user\Documents\PycharmProjects\prueba_sgd_group
+configfile: pyproject.toml
+plugins: anyio-4.14.2, cov-7.1.0, mock-3.15.1
+collected 4 items                                                                                                                                                                                                                 
+
+test\test_main.py ....                                                                                                                                                                                                      [100%]
+
+========================================================================================================= tests coverage =========================================================================================================
+________________________________________________________________________________________ coverage: platform win32, python 3.11.15-final-0 ________________________________________________________________________________________
+
+Coverage HTML written to dir test/html
+================================================================================================= 4 passed in 361.63s (0:06:01) ==================================================================================================
+(prueba_sgd_group) PS C:\Users\user\Documents\PycharmProjects\prueba_sgd_group> CORRECTO: el proceso con PID 24648 (proceso secundario de PID 22680)
+ha sido terminado.
+CORRECTO: el proceso con PID 22680 (proceso secundario de PID 6216)
+ha sido terminado.
+CORRECTO: el proceso con PID 6216 (proceso secundario de PID 20584)
+ha sido terminado.
+```
+
+Al finalizar la ejecución se ha creado la carpeta que contiene el informe:
+
+![pytest-cov-result.png](imagenes/pytest-cov-result.png)
+
+![coverage.png](imagenes/coverage.png)
+
+![(coverage-detalle.png](imagenes/coverage-detalle.png)

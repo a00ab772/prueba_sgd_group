@@ -3,8 +3,6 @@ import logging
 import os
 # Descomentad la linea para mostrar la salida logger.debug(...)
 # os.environ["LOG_LEVEL"] = "DEBUG"
-os.environ["HADOOP_HOME"] = "C:\\hadoop"
-os.environ["SPARK_LOCAL_IP"] = "127.0.0.1"
 import sys
 from unittest.mock import patch
 
@@ -81,14 +79,6 @@ def setUpModule():
     MOCK_AWS_GLOBAL = mock_aws()
     MOCK_AWS_GLOBAL.start()
 
-    os.environ["HADOOP_HOME"] = "C:\\hadoop"
-    os.environ["SPARK_LOCAL_IP"] = "127.0.0.1"
-    os.environ["AWS_DEFAULT_REGION"] = "eu-central-1"
-    os.environ["S3_BUCKET_CONFIG"] = "bucket-de-configuracion"
-    os.environ["SPARK_SECRET"] = "secreto-configuracion-de-spark"
-    os.environ["SPARK_DRIVER_MEMORY"] = "2g"
-    os.environ["SPARK_EXECUTOR_MEMORY"] = "2g"
-
     secrets_client = boto3.client("secretsmanager", region_name=os.getenv("AWS_DEFAULT_REGION", "eu-central-1"))
     secrets_client.create_secret(
         Name=os.getenv("SPARK_SECRET", "secreto-configuracion-de-spark"),
@@ -156,6 +146,15 @@ def setUpModule():
             )
         except Exception as e:
             logger.info(f"La tabla de DynamoDB mock '{table_name}' ya existe o se omitió: {e}")
+
+    # Configuración local de Spark y Hadoop
+    os.environ["HADOOP_HOME"] = "C:\\hadoop"
+    os.environ["SPARK_LOCAL_IP"] = "127.0.0.1"
+    os.environ["AWS_DEFAULT_REGION"] = "eu-central-1"
+    os.environ["S3_BUCKET_CONFIG"] = "bucket-de-configuracion"
+    os.environ["SPARK_SECRET"] = "secreto-configuracion-de-spark"
+    os.environ["SPARK_DRIVER_MEMORY"] = "2g"
+    os.environ["SPARK_EXECUTOR_MEMORY"] = "2g"
 
     SPARK_HANDLER_GLOBAL = SparkHandler(host="local[*]", app_name="Orquestador")
     hadoop_conf = SPARK_HANDLER_GLOBAL.spark_session.sparkContext._jsc.hadoopConfiguration()
