@@ -64,7 +64,10 @@ Para mi solución he hecho esta selección:
     al cluster de EMR.
   * [AWS Managed Workflows para Apache Airflow (MWAA)](https://aws.amazon.com/es/managed-workflows-for-apache-airflow/)
 
-Podemos ver los componentes en el [Diagrama Arquitectural](src/prueba_sgd_group/resources/diagrama_arquitectura.drawio)
+
+# Arquitectura de la solución
+
+![arquitectura.png](imagenes/arquitectura.png)
 
 ## Pre-requisitos
 
