@@ -18,6 +18,18 @@ ejecutar un proceso que lea datos desde los orígenes descritos, ejecute las tra
 
 Es muy importante que sea un programa que cambie su comportamiento dinámicamente vía los metadatos propuestos y que no sea un desarrollo ad hoc.
 
+**Nota**: Entiendo que la solución esperada no es un bloque similar a este, sino un código genérico que interpreta y ejecuta
+cualquier variante del json proporcionado:
+
+```shell
+
+  df_transformado = df
+                .filter("sexo != 'Ambos sexos' and municipio != 'N/A'")
+                .withColumn("domain", F.lit("demography"))
+                .withColumn("load_date", F.current_date())
+                .groupBy("provincia", "municipio", "sexo", "load_date")
+                .agg(F.sum("total").alias("total_ambos_sexos"))
+```
 3. Este código tiene que ser compilado y ejecutado usando el csv “data2024.csv” como datos de entrada 
 4. Después de la primera ejecución, se pide volver a ejecutar usando el csv “data2025.csv”.
 
@@ -508,7 +520,7 @@ El método `interpretador_de_dataflow(dataflow, year)` recibe el dataflow del fi
 
 ![outputs.png](imagenes/outputs.png)
 
-
+El equivalente 
 ## Descripción de las pruebas de la funcionalidad desarrollada
 
 La infraestructura de test está contenida en el archivo test_main.py:
