@@ -55,10 +55,13 @@ class SparkHandler:
                     "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider")
             .config("spark.databricks.delta.properties.defaults.autoOptimize.optimizeWrite", "true")
             .config("spark.sql.warehouse.dir", "spark-warehouse")
+            .config("spark.cleaner.referenceTracking.cleanCheckpoints", "true")
+            .config("spark.files.fetchTimeout", "60")
             .config("spark.driver.memory", spark_driver_memory)
             .config("spark.executor.memory", spark_executor_memory)
             .config("spark.hadoop.fs.s3a.access.key", spark_access_key)
             .config("spark.hadoop.fs.s3a.secret.key", spark_secret_key)
+            .config("spark.ui.enabled", "false")
             .getOrCreate()
         )
 

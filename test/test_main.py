@@ -369,10 +369,16 @@ class Test_del_apartado_5(TestBase):
                 self.assertEqual(num_concordancias, 7520)
                 self.assertEqual(num_municipios, num_discrepancias + num_concordancias)
 
-def limpiar_recursos_finales():
+def limpiar_hilos_al_finalizar_el_test_de_pycharm():
+    try:
+        active_spark = pyspark.sql.SparkSession.getActiveSession()
+        if active_spark:
+            active_spark.sparkContext.stop()
+    except Exception:
+        pass
     os._exit(0)
 
-atexit.register(limpiar_recursos_finales)
+atexit.register(limpiar_hilos_al_finalizar_el_test_de_pycharm)
 
 if __name__ == "__main__":
     unittest.main()
