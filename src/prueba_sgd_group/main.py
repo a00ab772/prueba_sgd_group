@@ -1,11 +1,11 @@
 import json
 import logging
 import os
+import sys
+
 bucket_name = os.getenv("S3_BUCKET_CONFIG", "bucket-de-configuracion")
-import traceback
 
 import boto3
-from delta import DeltaTable
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import current_date, lit
 import pyspark.sql.functions as F
@@ -13,10 +13,15 @@ import pyspark.sql.functions as F
 log_level_str = os.getenv("LOG_LEVEL", "INFO").upper()
 log_level = getattr(logging, log_level_str, logging.INFO)
 
-logging.basicConfig(level=log_level)
-logging.getLogger("py4j").setLevel(logging.ERROR)
-logging.getLogger("org.apache.spark.util.ShutdownHookManager").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
+logger.setLevel(log_level)
+
+if not logger.handlers:
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(log_level)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
 
 resources_path = f"{os.path.abspath(os.path.dirname(__file__))}/resources"
 

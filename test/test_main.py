@@ -1,3 +1,4 @@
+import atexit
 import json
 import logging
 import os
@@ -15,14 +16,22 @@ import unittest
 from datetime import datetime
 from src.prueba_sgd_group.main import SparkHandler, resources_path
 
-directorio_base = os.path.dirname(os.path.abspath(__file__))
-
 log_level_str = os.getenv("LOG_LEVEL", "INFO").upper()
 log_level = getattr(logging, log_level_str, logging.INFO)
 
-logging.basicConfig(level=log_level)
-logging.getLogger("py4j").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
+logger.setLevel(log_level)
+
+if not logger.handlers:
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(log_level)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+logging.getLogger("org.apache.spark.util.ShutdownHookManager").setLevel(logging.ERROR)
+logging.getLogger("org.apache.spark.SparkEnv").setLevel(logging.ERROR)
+
+directorio_base = os.path.dirname(os.path.abspath(__file__))
 
 # Uso variables globales para reutilizarlas en todas las clases de test
 SPARK_HANDLER_GLOBAL = None
@@ -251,6 +260,11 @@ class Test_de_los_apartados_1_al_4(TestBase):
                 items_guardados = response.get("Items", [])
                 self.assertGreater(len(items_guardados), 0)
 
+                # TODO: Es necesario demostrar el comportamiento solicitado en las salidas (overwrite, append y merge).
+                #       De momento cuento los registros insertados en dynamodb, pero cuando tenga un rato libre haré un
+                #       reporte que permita más claramente ver lo que pasa con esos tres tipos de salida, imprimiendo
+                #       algunos valores en cada caso a modo ilustrativo.
+
 class TestAirflow(TestBase):
 
     def test_creacion_y_ejecucion_dag_airflow_mockeado(self):
@@ -354,6 +368,11 @@ class Test_del_apartado_5(TestBase):
                 self.assertEqual(num_discrepancias, 236)
                 self.assertEqual(num_concordancias, 7520)
                 self.assertEqual(num_municipios, num_discrepancias + num_concordancias)
+
+def limpiar_recursos_finales():
+    os._exit(0)
+
+atexit.register(limpiar_recursos_finales)
 
 if __name__ == "__main__":
     unittest.main()

@@ -558,13 +558,21 @@ Los componentes principales de este archivo son:
 
 ## Ejecución de las pruebas de la funcionalidad desarrollada
 
+Evita que PyTest oculte la salida estándar poniendo este parámetro: 
+
+![img.png](imagenes/permite_que_logger_escriba_en_pycharm.png)
+
+Y lanza los tests:
+
 ![lanzamiento_tests.png](imagenes/lanzamiento_tests.png)
 
 ![resultado_tests.png](imagenes/resultado_tests.png)
 
-## Porcentaje de cobertura de código en las pruebas
 
-pytest-cov permite generar un reporte html que indica cual es la cobertura de código que tiene nuestra batería de test:
+## Obtener un informe del porcentaje de cobertura de código en las pruebas
+
+pytest-cov permite generar un informe html con el porcentaje de código que cubre nuestra batería de test; este valor será
+de utilidad si lo incluimos como valor de corte en las Github actions de despliegue:
 
 ```shell
 (prueba_sgd_group) PS C:\Users\user\Documents\PycharmProjects\prueba_sgd_group> pytest --cov=src/prueba_sgd_group --cov-report=html:test/html test/test_main.py -p no:cacheprovider
