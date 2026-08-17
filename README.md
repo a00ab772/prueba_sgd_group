@@ -820,7 +820,7 @@ cada tipo de almacenamiento se ilustran claramente con los siguientes datos real
 
 A partir de la ejecución completa en dos rondas proporcionada, las conclusiones clave sobre el comportamiento de cada estrategia de almacenamiento son las siguientes:
 
-1. Salida tipo 'file' con save_mode overwrite (/data_reducido/demo/output/last)
+1. **Salida tipo 'file' con save_mode overwrite (/data_reducido/demo/output/last)**
 
 El modo overwrite reemplaza por completo el contenido anterior en cada ejecución o iteración de año.
 
@@ -877,7 +877,7 @@ Ronda 2
 
 ```
 
-2. Salida tipo 'file' con save_mode append (/data_reducido/demo/output/historic)
+2. **Salida tipo 'file' con save_mode append (/data_reducido/demo/output/historic)**
 
 El modo append añade filas de forma acumulativa al final del directorio histórico sin validar duplicados.
 
@@ -945,7 +945,7 @@ Ronda 2
 ```
 
 
-3. Salida tipo 'table' en DynamoDB (Modo Append)
+3. **Salida tipo 'table' en DynamoDB (Modo Append)**
 
 El modo append en DynamoDB realiza inserciones directas (o llamadas tipo PutItem) de todos los registros procesados en
 cada ejecución, sin comprobar si la clave ya existe.
@@ -964,7 +964,7 @@ al año evaluado, reflejando el número exacto de registros que el flujo intent�
 
 **Nota:** A diferencia de la escritura append en parquet `historic`, el append acumula líneas físicas duplicadas indefinidamente duplicando el tamaño total, el comportamiento orientado a tablas permite gestionar las claves de manera estructurada en cada iteración de carga.
 
-4. Salida tipo 'table' en DynamoDB (Modo Merge)
+4. **Salida tipo 'table' en DynamoDB (Modo Merge)**
 
 El modo merge aplica una lógica de combinación, actualización o unificación de datos (por ejemplo, actualizando atributos
 si el registro ya existe o insertándolo si es nuevo, evitando duplicidades lógicas de identidad).
