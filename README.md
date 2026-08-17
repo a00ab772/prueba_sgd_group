@@ -79,7 +79,7 @@ Para mi solución he hecho esta selección:
 
 # Arquitectura de la solución
 
-![arquitectura.png](imagenes/arquitectura.png)
+![Arquitectura de la solución](imagenes/arquitectura.png)
 
 ## Pre-requisitos
 
@@ -108,11 +108,11 @@ Utilizo JDK Eclipse Temurin porque es la recomendada en en desarrollo para ecosi
 
 https://github.com/cdarlint/winutils/tree/master/hadoop-3.3.6/bin
 
-![hadoop_local_configuration .png](imagenes/hadoop_local_configuration.png)
+![Configuración local de hadoop](imagenes/hadoop_local_configuration.png)
 
 ## Creación del proyecto
 
-![crear_proyecto.png](imagenes/crear_proyecto.png)
+![Creación del proyecto](imagenes/crear_proyecto.png)
 
 ## Instalación de las dependencias
 
@@ -514,65 +514,65 @@ El método `interpretador_de_dataflow(dataflow, year)` recibe el dataflow del fi
 
 * A continuación ejecuta las transformaciones indicadas en el dataflow:
 
-![transformations.png](imagenes/transformations.png)
+![Transformaciones](imagenes/transformations.png)
 
 * Escribe los resultados en los destinos especificados:
 
-![outputs.png](imagenes/outputs.png)
+![Saidas](imagenes/outputs.png)
 
 
 ## Descripción de las pruebas de la funcionalidad desarrollada
 
 La infraestructura de test está contenida en el archivo test_main.py:
 
-![Jerarquía test main.png](imagenes/jerarquia_test_main.png)
+![Jerarquía de test_main](imagenes/jerarquia_test_main.png)
 
 Los componentes principales de este archivo son:
 
 * La función setUpModule() - Mockea los servicios de AWS y el cluster local de Spark
 
-![setUpModule.png](imagenes/setUpModule.png)
+![función setUpModule](imagenes/setUpModule.png)
 
 * La función tearDownModule() - Elimina la infraestructura mockeada.
 
-![tearDownModule.png](imagenes/tearDownModule.png)
+![función tearDownModule](imagenes/tearDownModule.png)
 
 * La clase TestBase - Inicializa los clientes que acceden a los componentes AWS y al cluster local de Spark y Hadoop:
 
-![TestBase .png](imagenes/TestBase.png)
+![Clase TestBase](imagenes/TestBase.png)
 
 * La clase Test_de_los_apartados_1_al_4(TestBase) - Ejecuta y valida el método `interpretador_de_dataflow(dataflow, year)` con todos los
   los dataflows contenidos en el archivo `metadata.json` para todos los csv de entrada:
 
-![Test_de_los_apartados_1_al_4.png](imagenes/Test_de_los_apartados_1_al_4.png)
+![Clase Test_de_los_apartados_1_al_4](imagenes/Test_de_los_apartados_1_al_4.png)
 
 * La clase TestAirflow(TestBase) - Planifica en el servidor mockeado de Airflow una tarea recurrente que ejecuta cada
   cinco minutos el método `interpretador_de_dataflow(dataflow, year)`  
 
-![TestAirflow.png](imagenes/TestAirflow.png)
+![Clase TestAirflow](imagenes/TestAirflow.png)
 
 * La clase Test_apartado_5(TestBase) - Valida los datos de entrada de manera acorde a los requisitos expuestos en el enunciado:
 
-![Test_apartado_5.png](imagenes/Test_apartado_5.png)
+![Clase Test_apartado_5](imagenes/Test_apartado_5.png)
 
 
 ## Ejecución de las pruebas de la funcionalidad desarrollada
 
 Evita que PyTest oculte la salida estándar poniendo este parámetro: 
 
-![img.png](imagenes/permite_que_logger_escriba_en_pycharm.png)
+![Como habilitar pycharm para escribir en logger del test](imagenes/permite_que_logger_escriba_en_pycharm.png)
 
 Y lanza los tests:
 
-![lanzamiento_tests.png](imagenes/lanzamiento_tests.png)
+![Lanza los tests](imagenes/lanzamiento_tests.png)
 
-![resultado_tests.png](imagenes/resultado_tests.png)
+![Resultado de los tests](imagenes/resultado_tests.png)
 
 ## Diferencias entre el comportamiento entre los almacenamientos overwrite, append y merge
 
 He preparado un test específico con unos datos entrada csv de unas pocas líneas para que podamos intrepretar las distintas salidas.
 
-![test_reducido_overwrite_append_merge.png](imagenes/test_reducido_overwrite_append_merge.png)
+![Test reducido overwrite, append y merge](imagenes/test_reducido_overwrite_append_merge.png)
 
 **Resultado de la ejecución**
 
@@ -1011,8 +1011,8 @@ ha sido terminado.
 
 Al finalizar la ejecución se ha creado la carpeta que contiene el informe:
 
-![pytest-cov-result.png](imagenes/pytest-cov-result.png)
+![Resultado de pytest-cov](imagenes/pytest-cov-result.png)
 
-![coverage.png](imagenes/coverage.png)
+![Porcentaje de cobertura](imagenes/coverage.png)
 
-![(coverage-detalle.png](imagenes/coverage-detalle.png)
+![(Detalle de la cobertura](imagenes/coverage-detalle.png)
