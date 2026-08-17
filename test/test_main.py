@@ -2,8 +2,15 @@ import atexit
 import json
 import logging
 import os
+import csv
+
 # Descomentad la linea para mostrar la salida logger.debug(...)
 # os.environ["LOG_LEVEL"] = "DEBUG"
+# Descomentad la linea que os interese mostrar en el logging
+# os.environ["FORMATO_LOG"] = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+# os.environ["FORMATO_LOG"] = "%(levelname)s - %(message)s"
+os.environ["FORMATO_LOG"] = "%(message)s"
+
 import sys
 from unittest.mock import patch
 
@@ -14,7 +21,7 @@ import pyspark.sql.functions as F
 import unittest
 
 from datetime import datetime
-from src.prueba_sgd_group.main import SparkHandler, resources_path
+from src.prueba_sgd_group.main import SparkHandler, carpeta_last
 
 log_level_str = os.getenv("LOG_LEVEL", "INFO").upper()
 log_level = getattr(logging, log_level_str, logging.INFO)
@@ -25,7 +32,7 @@ logger.setLevel(log_level)
 if not logger.handlers:
     handler = logging.StreamHandler(sys.stdout)
     handler.setLevel(log_level)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter(os.getenv("FORMATO_LOG", "%(message)s"))
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 logging.getLogger("org.apache.spark.util.ShutdownHookManager").setLevel(logging.ERROR)
@@ -106,7 +113,7 @@ def setUpModule():
         CreateBucketConfiguration={"LocationConstraint": os.getenv("AWS_DEFAULT_REGION", "eu-central-1")}
     )
 
-    archivo_metadata_json_local = f"{resources_path}/metadata.json"
+    archivo_metadata_json_local = f"{carpeta_last}/metadata.json"
     assert os.path.exists(archivo_metadata_json_local), "El fichero metadata.json no existe en resources"
 
     with open(archivo_metadata_json_local, "r", encoding="utf-8") as f:
@@ -126,7 +133,7 @@ def setUpModule():
     ]
 
     for file_name in input_files:
-        local_file_path = f"{resources_path}/data/demo/input/{file_name}"
+        local_file_path = f"{carpeta_last}/data/demo/input/{file_name}"
         assert os.path.exists(local_file_path), f"El fichero {file_name} no existe en resources/data/demo/input"
 
         with open(local_file_path, "rb") as f:
@@ -175,7 +182,7 @@ def setUpModule():
         if path and "s3a://" in path:
             parts = path.replace("s3a://", "").split("/", 1)
             relative_path = parts[1] if len(parts) > 1 else parts[0]
-            local_file = os.path.join(resources_path, relative_path)
+            local_file = os.path.join(carpeta_last, relative_path)
 
             if os.path.exists(local_file) and (not os.path.isdir(local_file) or os.listdir(local_file)):
                 return original_load(self, local_file)
@@ -191,7 +198,7 @@ def setUpModule():
         if path and "s3a://" in path:
             parts = path.replace("s3a://", "").split("/", 1)
             relative_path = parts[1] if len(parts) > 1 else parts[0]
-            local_file = os.path.join(resources_path, relative_path)
+            local_file = os.path.join(carpeta_last, relative_path)
 
             os.makedirs(os.path.dirname(local_file), exist_ok=True)
 
@@ -240,7 +247,7 @@ class TestBase(unittest.TestCase):
 class Test_de_los_apartados_1_al_4(TestBase):
 
     def test_interpreta_json(self):
-        with open(f"{resources_path}/metadata.json", "r", encoding="utf-8") as f:
+        with open(f"{carpeta_last}/metadata.json", "r", encoding="utf-8") as f:
             data_dict = json.load(f)
 
         for year in ["2024", "2025"]:
@@ -260,10 +267,229 @@ class Test_de_los_apartados_1_al_4(TestBase):
                 items_guardados = response.get("Items", [])
                 self.assertGreater(len(items_guardados), 0)
 
-                # TODO: Es necesario demostrar el comportamiento solicitado en las salidas (overwrite, append y merge).
-                #       De momento cuento los registros insertados en dynamodb, pero cuando tenga un rato libre haré un
-                #       reporte que permita más claramente ver lo que pasa con esos tres tipos de salida, imprimiendo
-                #       algunos valores en cada caso a modo ilustrativo.
+class TestOverwriteAppendMerge(TestBase):
+
+    def _imprimir_contenido_csv(self, year: str, df_transformado):
+        path_csv = f"{carpeta_last}/data_reducido/demo/input/archivo_reducido_{year}.csv"
+        logger.info("-" * 100)
+        logger.info(f"\n[+] Leyendo archivo de entrada {path_csv}")
+
+        if os.path.exists(path_csv):
+            with open(path_csv, mode="r", encoding="utf-8") as f:
+                reader = csv.reader(f, delimiter=';')
+                filas_csv = list(reader)
+
+            if filas_csv:
+                cabecera = filas_csv[0]
+                datos = filas_csv[1:]
+
+                logger.info(f"\n    Contenido del csv de {year} ({len(datos)} registros):\n")
+
+                ancho_columnas = {i: len(col) for i, col in enumerate(cabecera)}
+                for fila in datos:
+                    for i, val in enumerate(fila):
+                        if i < len(ancho_columnas) and len(str(val)) > ancho_columnas[i]:
+                            ancho_columnas[i] = len(str(val))
+
+                cabecera_str = " | ".join(col.ljust(ancho_columnas[i]) for i, col in enumerate(cabecera))
+                logger.info(f"    {cabecera_str}")
+
+                linea_separadora = "-+-".join("-" * ancho_columnas[i] for i in range(len(cabecera)))
+                logger.info(f"    {linea_separadora}")
+
+                for fila in datos:
+                    row_str = " | ".join(
+                        str(val).ljust(ancho_columnas[i]) if i < len(ancho_columnas) else str(val) for i, val in
+                        enumerate(fila))
+                    logger.info(f"    {row_str}")
+            else:
+                logger.info(f"    El fichero CSV de {year} está vacío.")
+        else:
+            logger.info(f"    No se encuentra el fichero CSV en la ruta: {path_csv}")
+
+        logger.info("-" * 100)
+
+    def _imprimir_contenido_parquet_historic_en_formato_csv(self, carpeta_historic: str):
+
+        if os.path.exists(carpeta_historic):
+            csv_encontrados = []
+            for root, dirs, files in os.walk(carpeta_historic):
+                for file in files:
+                    if file.endswith(".csv"):
+                        csv_encontrados.append(os.path.join(root, file))
+
+            if csv_encontrados:
+                todas_filas = []
+                cabecera = None
+
+                for path_csv in csv_encontrados:
+                    with open(path_csv, mode="r", encoding="utf-8") as f:
+                        reader = csv.reader(f, delimiter=',')
+                        filas_csv = list(reader)
+
+                    if filas_csv:
+                        if cabecera is None:
+                            cabecera = filas_csv[0]
+                            todas_filas.extend(filas_csv[1:])
+                        else:
+                            if filas_csv[0] == cabecera:
+                                todas_filas.extend(filas_csv[1:])
+                            else:
+                                todas_filas.extend(filas_csv)
+
+                cabecera = ["sexo", "municipio", "load_date", "provincia", "total_ambos_sexos"]
+
+                if cabecera and todas_filas:
+                    logger.info(
+                        f"\n    Contenido unificado de todos los CSVs almacenados en la carpeta parquet 'historic' ({len(todas_filas)} registros):\n")
+
+                    ancho_columnas = {i: len(col) for i, col in enumerate(cabecera)}
+                    for fila in todas_filas:
+                        for i, val in enumerate(fila):
+                            if i < len(ancho_columnas) and len(str(val)) > ancho_columnas[i]:
+                                ancho_columnas[i] = len(str(val))
+
+                    cabecera_str = " | ".join(col.ljust(ancho_columnas[i]) for i, col in enumerate(cabecera))
+                    logger.info(f"    {cabecera_str}")
+
+                    linea_separadora = "-+-".join("-" * ancho_columnas[i] for i in range(len(cabecera)))
+                    logger.info(f"    {linea_separadora}")
+
+                    for fila in todas_filas:
+                        row_str = " | ".join(
+                            str(val).ljust(ancho_columnas[i]) if i < len(ancho_columnas) else str(val) for i, val in
+                            enumerate(fila))
+                        logger.info(f"    {row_str}")
+                else:
+                    logger.info(f"    Los archivos CSV encontrados están vacíos.")
+            else:
+                logger.info(f"    No se encontraron archivos CSV dentro de {carpeta_historic}")
+        else:
+            logger.info(f"    No se encuentra el directorio historic en la ruta: {carpeta_historic}")
+
+        logger.info("-" * 100)
+
+    def _imprimir_contenido_parquet(self, path_parquet: str, df_referencia):
+        df_parquet = df_referencia.interpretador_de_dataflow.__globals__[
+            'SparkSession'].getActiveSession().read.parquet(path_parquet) if hasattr(self.spark_handler,
+                                                                                     'spark') else df_referencia.sql_ctx.read.parquet(
+            path_parquet)
+        registros_parquet = df_parquet.collect()
+        logger.info(f"   [+] Contenido actual de las filas en el Parquet ({len(registros_parquet)} registros):")
+        if registros_parquet:
+            cols = df_parquet.columns
+            anchos = {col: len(col) for col in cols}
+            for fila in registros_parquet:
+                for col in cols:
+                    val_len = len(str(fila[col]))
+                    if val_len > anchos[col]:
+                        anchos[col] = val_len
+            logger.info(f"    {' | '.join(col.ljust(anchos[col]) for col in cols)}")
+            logger.info(f"    {'-+-'.join('-' * anchos[col] for col in cols)}")
+            for fila in registros_parquet:
+                logger.info(f"    {' | '.join(str(fila[col]).ljust(anchos[col]) for col in cols)}")
+
+    def test_informe_overwrite_append_merge_CSV_REDUCIDOS(self):
+        with open(f"{carpeta_last}/metadata_csv_entrada_reducidos.json", "r", encoding="utf-8") as f:
+            data_dict = json.load(f)
+
+        dataflow = data_dict["dataflows"][0]
+
+        logger.info("=" * 100)
+        logger.info("INFORME OVERWRITE, APPEND Y MERGE CON CSV REDUCIDOS")
+        logger.info("=" * 100)
+
+        for ronda in [1, 2]:
+            logger.info(f"\nRonda {ronda}\n")
+            for year in ["2024", "2025"]:
+                df_transformado = self.spark_handler.interpretador_de_dataflow(dataflow=dataflow, year=year)
+
+                self._imprimir_contenido_csv(year, df_transformado)
+
+                logger.info("\n1. Salida tipo 'file' con save_mode overwrite (/data_reducido/demo/output/last):")
+                last_path = f"{carpeta_last}/data_reducido/demo/output/last"
+                if os.path.exists(last_path):
+                    files_last = [
+                        os.path.join(dp, f)
+                        for dp, dn, filenames in os.walk(last_path)
+                        for f in filenames
+                        if f.endswith(".parquet")
+                    ]
+
+                    self._imprimir_contenido_parquet(last_path, df_transformado)
+
+                logger.info("\n2. Salida tipo 'file' con save_mode append (/data_reducido/demo/output/historic):")
+                carpeta_historic = f"{carpeta_last}/data_reducido/demo/output/historic"
+                if os.path.exists(carpeta_historic):
+                    self._imprimir_contenido_parquet_historic_en_formato_csv(carpeta_historic)
+
+                logger.info("\n3. Salida tipo 'table' en DynamoDB (modo append):")
+                nombre_tabla_demo = "demo"
+                response_demo = self.dynamodb_client.scan(TableName=nombre_tabla_demo)
+                items_demo = response_demo.get("Items", [])
+                logger.info(
+                    f"\n   La tabla '{nombre_tabla_demo}' tiene {response_demo.get('Count', 0)} elementos insertados (modo append):")
+                for item in items_demo:
+                    logger.info(f"     - {item}")
+
+                logger.info("\n4. Salida tipo 'table' en DynamoDB (modo merge):")
+                nombre_tabla_raw = "raw_demo"
+                response_raw = self.dynamodb_client.scan(TableName=nombre_tabla_raw)
+                items_raw = response_raw.get("Items", [])
+                logger.info(
+                    f"\n   La tabla '{nombre_tabla_raw}' tiene {response_raw.get('Count', 0)} elementos insertados (modo merge):")
+                for item in items_raw:
+                    logger.info(f"     - {item}")
+
+                logger.info("\n" + "=" * 100)
+
+    def test_informe_overwrite_append_merge(self):
+        # TODO: Es necesario demostrar el comportamiento solicitado en las salidas (overwrite, append y merge).
+        #       De momento cuento los registros insertados en dynamodb, pero cuando tenga un rato libre haré un
+        #       reporte que permita más claramente ver lo que pasa con esos tres tipos de salida, imprimiendo
+        #       algunos valores en cada caso a modo ilustrativo.
+        with open(f"{carpeta_last}/metadata.json", "r", encoding="utf-8") as f:
+            data_dict = json.load(f)
+
+        dataflow = data_dict["dataflows"][0]
+
+        logger.info("""
+        
+         =================================
+         INFORME overwrite, append y merge
+         =================================
+        """)
+
+        for year in ["2024", "2025"]:
+            df_transformado = self.spark_handler.interpretador_de_dataflow(dataflow=dataflow, year=year)
+            logger.info(f" [+] Año procesado: {year} | Total registros: {df_transformado.count()}")
+
+            logger.info("1. Salida tipo 'file' con save_mode overwrite (ubicación de salida: /data/demo/output/last) ...")
+            last_path = f"{carpeta_last}/data/demo/output/last"
+            if os.path.exists(last_path):
+                files_last = [os.path.join(dp, f) for dp, dn, filenames in os.walk(last_path) for f in filenames if
+                              f.endswith(".parquet")]
+                logger.info(
+                    f" [+] [OVERWRITE] Directorio '{last_path}' existe. Ficheros parquet encontrados tras finalizar bucle: {len(files_last)}")
+
+            logger.info("2. Salida tipo file con save_mode append y particionado (ubicació: /data/demo/output/historic)")
+            carpeta_historic = f"{carpeta_last}/data/demo/output/historic"
+            if os.path.exists(carpeta_historic):
+                partitions = os.listdir(carpeta_historic)
+                logger.info(
+                    f" [+] [APPEND] Directorio '{carpeta_historic}' particionado. Particiones encontradas: {partitions}")
+
+            logger.info("3. Salida tipo table en DynamoDB (modo append)")
+            nombre_tabla = "demo"
+            response = self.dynamodb_client.scan(TableName=nombre_tabla)
+            logger.info(f"La tabla {nombre_tabla} tiene {response.get('Count')} elementos insertados en modo append.")
+
+            logger.info("4. Salida tipo table en DynamoDB (modos merge)")
+            nombre_tabla = "raw_demo"
+            response = self.dynamodb_client.scan(TableName=nombre_tabla)
+            logger.info(f"La tabla {nombre_tabla} tiene {response.get('Count')} elementos insertados en modo merge.")
+
+            logger.info("==================================================\n")
 
 class TestAirflow(TestBase):
 
@@ -310,7 +536,7 @@ class Test_del_apartado_5(TestBase):
             .option("header", "true")
             .option("inferSchema", "true")
             .option("delimiter", ";")
-            .csv(f"{resources_path}/data/demo/input/data2024.csv")
+            .csv(f"{carpeta_last}/data/demo/input/data2024.csv")
         )
 
         data2025 = (
@@ -318,7 +544,7 @@ class Test_del_apartado_5(TestBase):
             .option("header", "true")
             .option("inferSchema", "true")
             .option("delimiter", ";")
-            .csv(f"{resources_path}/data/demo/input/data2025.csv")
+            .csv(f"{carpeta_last}/data/demo/input/data2025.csv")
         )
 
         filas_solo_en_data2024 = data2024.exceptAll(data2025)
@@ -334,7 +560,7 @@ class Test_del_apartado_5(TestBase):
                 .option("header", "true")
                 .option("inferSchema", "true")
                 .option("delimiter", ";")
-                .csv(f"{resources_path}/data/demo/input/data{year}.csv")
+                .csv(f"{carpeta_last}/data/demo/input/data{year}.csv")
             )
 
             df_agrupado_por_sexo = df.groupBy("provincia", "municipio").agg(

@@ -19,11 +19,11 @@ logger.setLevel(log_level)
 if not logger.handlers:
     handler = logging.StreamHandler(sys.stdout)
     handler.setLevel(log_level)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter(os.getenv("FORMATO_LOG", "%(message)s"))
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-resources_path = f"{os.path.abspath(os.path.dirname(__file__))}/resources"
+carpeta_last = f"{os.path.abspath(os.path.dirname(__file__))}/resources"
 
 
 class SparkHandler:
@@ -70,7 +70,7 @@ class SparkHandler:
         spark = SparkSession.getActiveSession()
         dfs = {}
 
-        logger.info("""
+        logger.debug("""
         
         PROCESANDO LAS SECCIÓN DE 'inputs' ...
         ======================================
@@ -99,7 +99,7 @@ class SparkHandler:
                 raise e
 
 
-        logger.info(""" 
+        logger.debug(""" 
         
         [+] Atendiendo al enunciado de la prueba, únicamente vamos a procesar los datos provinientes de la clave 'input_data'. He asumido que la clave 'parquet_data' puede ignorarse, ya que entiendo que no aporta valor para los requisitos que queremos cumplir en esta prueba.  
         
@@ -107,7 +107,7 @@ class SparkHandler:
         df_transformado = dfs["demo_data"]
 
 
-        logger.info("""
+        logger.debug("""
         
         PROCESANDO LAS SECCIÓN DE 'transformations' ...
         ===============================================
@@ -142,16 +142,16 @@ class SparkHandler:
                 condicion_de_agregacion = [F.expr(agg_str) for agg_str in aggregations]
                 df_transformado = df_transformado.groupBy(*columnas_de_agregacion).agg(*condicion_de_agregacion)
 
-            logger.info(f" [+] Aplicamos al dataframe el siguiente elemento de la lista de 'transformations': '{t_type}' ==> {t_config}.\n\n")
+            logger.debug(f" [+] Aplicamos al dataframe el siguiente elemento de la lista de 'transformations': '{t_type}' ==> {t_config}.\n\n")
             if logger.isEnabledFor(logging.DEBUG):
                 df_transformado.show(truncate=False)
 
-        logger.info(f" [+] La variable 'df_transformado' contiene el resultado de todas las transformaciones aplicadas.\n")
+        logger.debug(f" [+] La variable 'df_transformado' contiene el resultado de todas las transformaciones aplicadas.\n")
         if logger.isEnabledFor(logging.DEBUG):
             df_transformado.show(truncate=False)
             df_transformado.explain()
 
-        logger.info("""
+        logger.debug("""
         
         ***************************************
         PROCESANDO LAS SECCIÓN DE 'outputs' ...
@@ -167,7 +167,7 @@ class SparkHandler:
             out_config = output["config"]
 
             if out_type == "file":
-                ruta_salida = f"{resources_path}{out_config['path']}"
+                ruta_salida = f"{carpeta_last}{out_config['path']}"
                 file_format = out_config["format"]
                 save_mode = out_config["save_mode"]
 
@@ -179,9 +179,9 @@ class SparkHandler:
                 if file_format == "parquet":
                     writer.parquet(ruta_salida)
 
-                logger.info(f" [+] Acción de escritura ===> '{out_type}'    |   '{save_mode}' | destino: '{ruta_salida}' {file_format} files.\n\n")
+                logger.debug(f" [+] Acción de escritura ===> '{out_type}'    |   '{save_mode}' | destino: '{ruta_salida}' {file_format} files.\n\n")
 
-                logger.info(f" [+] Adicionalmente escribo en {ruta_salida}/{out_name}.csv el csv resultante, para que podamos comprobar la salida con un editor de texto.\n\n")
+                logger.debug(f" [+] Adicionalmente escribo en {ruta_salida}/{out_name}.csv el csv resultante, para que podamos comprobar la salida con un editor de texto.\n\n")
                 writer.csv(f"{ruta_salida}/{out_name}.csv")
 
             elif out_type == "table":
@@ -192,7 +192,7 @@ class SparkHandler:
                 dynamodb_client = boto3.client("dynamodb", region_name=region_name)
                 rows = df_transformado.collect()
 
-                logger.info(f""" 
+                logger.debug(f""" 
                     [+] Escribiendo {len(rows)} registros en la tabla de DynamoDB: {out_table_name} (Modo: {out_save_mode}).
                     
                         He de resaltar que al haber elegido DynamoDB como base de datos de destino para persistir la salida
@@ -218,7 +218,7 @@ class SparkHandler:
                         Item=item
                     )
 
-                logger.info(
+                logger.debug(
                     f" [+] Acción de escritura ===> '{out_type}' (DynamoDB) : '{out_table_name}' | Modo de escritura : '{out_save_mode}'.\n\n")
 
         return df_transformado
