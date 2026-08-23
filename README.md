@@ -1043,3 +1043,7 @@ Añadimos infrastructura como código con Terraform y github workflows CI/CD:
 Validamos los archivos de terraform sin conectar con el entorno de AWS:
 
 ![validacion de la configuracion terraform](imagenes/validacion_terraform.png)
+
+Si vamos al proyecto en Github podremos ver los workflows en la sección de Actions:
+
+![github actions](imagenes/github.png)
