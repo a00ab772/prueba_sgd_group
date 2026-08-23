@@ -5,6 +5,7 @@ description = "Orquestación de proceso Spark en base a json de entrada"
 requires-python = ">=3.11"
 dependencies = [
     "apache-airflow>=3.3.0",
+    "apache-airflow-providers-amazon>=9.34.0",
     "boto3-stubs~=1.43.69",
     "delta-spark>=3.3.2",
     "moto>=5.2.2",
@@ -13,6 +14,7 @@ dependencies = [
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
     "pytest-mock>=3.15.1",
+    "python-amazon-simple-product-api>=2.2.11",
 ]
 
 [project.scripts]

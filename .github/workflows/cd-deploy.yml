@@ -1,0 +1,81 @@
+name: Production Deployment (CD)
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  quality-checks:
+    name: Code Quality & Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install UV & Python
+        uses: astral-sh/setup-uv@v2
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run Linters & Tests
+        run: |
+          uv sync
+          uv run ruff check src/ dags/
+          uv run pytest tests/
+
+  deploy-infrastructure:
+    name: Deploy Infrastructure (Terraform)
+    needs: quality-checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./terraform/environments/prod
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate with AWS via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::123456789012:role/GitHubActionsProdRole
+          aws-region: us-east-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Terraform Init & Apply
+        run: |
+          terraform init
+          terraform apply -auto-approve
+
+  deploy-artifacts:
+    name: Deploy Code & DAGs to AWS
+    needs: deploy-infrastructure
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate with AWS via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::123456789012:role/GitHubActionsProdRole
+          aws-region: us-east-1
+
+      - name: Sync PySpark Jobs to S3
+        run: |
+          aws s3 sync ./src s3://prod-data-pipeline-artifacts/scripts/ --delete
+
+      - name: Sync Airflow DAGs to MWAA S3
+        run: |
+          aws s3 sync ./dags s3://prod-mwaa-dags-bucket/dags/ --delete

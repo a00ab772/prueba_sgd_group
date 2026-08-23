@@ -38,6 +38,7 @@ Es necesario demostrar el comportamiento solicitado en las salidas (overwrite, a
 5. Adicionalmente, se piden 2 códigos (totalmente aparte del punto 1) para realizar las siguientes comprobaciones (por ejemplo, un test unitario):
 
     a. Qué filas han cambiado del fichero de 2024 al fichero de 2025
+
     b. Qué problemas de calidad del dato tiene el fichero de 2025 (Ambos sexos != Hombres + Mujeres)
 
 6. Como ultimo punto, se pide que en un documento de PowerPoint se haga una presentación de cómo se podría implantar un motor como el solicitado
@@ -344,6 +345,21 @@ Installed 4 packages in 35ms
  + botocore-stubs==1.43.67
  ~ prueba-sgd-group==0.1.0 (from file:///C:/Users/user/Documents/PycharmProjects/prueba_sgd_group)
  + types-s3transfer==0.16.0
+ 
+(prueba_sgd_group) PS C:\Users\user\Documents\PycharmProjects\prueba_sgd_group> uv pip install "apache-airflow>=2.8.0,<3.0.0" "apache-airflow-providers-amazon>=8.0.0"
+Resolved 158 packages in 232ms
+Uninstalled 5 packages in 47ms
+Installed 5 packages in 315ms
+ - apache-airflow==3.3.0
+ + apache-airflow==2.11.2
+ - marshmallow==4.3.1
+ + marshmallow==3.26.2
+ - rich==15.0.0
+ + rich==13.9.4
+ - sqlalchemy==2.0.52
+ + sqlalchemy==1.4.54
+ - universal-pathlib==0.3.10
+ + universal-pathlib==0.2.6
 ```
 
 En cualquier momento podemos solucionar inconsistencias en las dependencias con este comando:
@@ -1016,3 +1032,14 @@ Al finalizar la ejecución se ha creado la carpeta que contiene el informe:
 ![Porcentaje de cobertura](imagenes/coverage.png)
 
 ![(Detalle de la cobertura](imagenes/coverage-detalle.png)
+
+
+# Infraestructura as code y workflows CI / CD
+
+Añadimos infrastructura como código con Terraform y github workflows CI/CD:   
+
+![carpetas terrarofm y github](imagenes/carpetas_terraform_github.png)
+
+Validamos los archivos de terraform sin conectar con el entorno de AWS:
+
+![validacion de la configuracion terraform](imagenes/validacion_terraform.png)

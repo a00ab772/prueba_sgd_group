@@ -5,7 +5,7 @@ import os
 import csv
 
 # Descomentad la linea para mostrar la salida logger.debug(...)
-# os.environ["LOG_LEVEL"] = "DEBUG"
+os.environ["LOG_LEVEL"] = "DEBUG"
 # Descomentad la linea que os interese mostrar en el logging
 # os.environ["FORMATO_LOG"] = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 # os.environ["FORMATO_LOG"] = "%(levelname)s - %(message)s"
