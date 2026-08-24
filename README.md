@@ -1,3 +1,22 @@
+# Índice
+
+* [Descripción de la prueba](#descripción-de-la-prueba)
+* [Solución aplicada](#solución-aplicada)
+* [Arquitectura de la solución](#arquitectura-de-la-solución)
+  * [Pre-requisitos](#pre-requisitos)
+  * [Creación del proyecto](#creación-del-proyecto)
+  * [Instalación de las dependencias](#instalación-de-las-dependencias)
+  * [Funcionalidad desarrollada](#funcionalidad-desarrollada)
+  * [Descripción de las pruebas de la funcionalidad desarrollada](#descripción-de-las-pruebas-de-la-funcionalidad-desarrollada)
+  * [Ejecución de las pruebas de la funcionalidad desarrollada](#ejecución-de-las-pruebas-de-la-funcionalidad-desarrollada)
+  * [Diferencias entre el comportamiento entre los almacenamientos overwrite, append y merge](#diferencias-entre-el-comportamiento-entre-los-almacenamientos-overwrite-append-y-merge)
+    * [test_informe_overwrite_append_merge_CSV_1_registro](#test_informe_overwrite_append_merge_csv_1_registro)
+    * [test_informe_overwrite_append_merge_CSV_REDUCIDOS](#test_informe_overwrite_append_merge_csv_reducidos)
+  * [Obtener un informe del porcentaje de cobertura de código en las pruebas](#obtener-un-informe-del-porcentaje-de-cobertura-de-código-en-las-pruebas)
+* [Infraestructura as code y workflows CI / CD](#infraestructura-as-code-y-workflows-ci--cd)
+
+---
+
 # Descripción de la prueba
 
 El objetivo de la prueba técnica es que puedas demostrar tus capacidades de desarrollo en el marco de Big Data y Spark,
