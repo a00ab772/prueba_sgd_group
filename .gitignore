@@ -20,6 +20,8 @@ src/prueba_sgd_group/resources/data/demo/output/
 src/prueba_sgd_group/resources/data/demo/historic/
 src/prueba_sgd_group/resources/data_reducido/demo/output/
 src/prueba_sgd_group/resources/data_reducido/demo/historic/
+src/prueba_sgd_group/resources/data_1_registro/demo/output/
+src/prueba_sgd_group/resources/data_1_registro/demo/historic/
 
 # Sistema operativo y otros
 .DS_Store

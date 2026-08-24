@@ -337,12 +337,10 @@ class TestOverwriteAppendMerge(TestBase):
                         filas_csv = list(reader)
 
                     if filas_csv:
-                        # Toma la primera fila del primer CSV como cabecera dinámica
                         if cabecera is None:
                             cabecera = filas_csv[0]
                             todas_filas.extend(filas_csv[1:])
                         else:
-                            # Si el archivo incluye la misma cabecera, la ignora y guarda solo los datos
                             if filas_csv[0] == cabecera:
                                 todas_filas.extend(filas_csv[1:])
                             else:
@@ -516,10 +514,6 @@ class TestOverwriteAppendMerge(TestBase):
                 logger.info("\n" + "=" * 100)
 
     def test_informe_overwrite_append_merge(self):
-        # TODO: Es necesario demostrar el comportamiento solicitado en las salidas (overwrite, append y merge).
-        #       De momento cuento los registros insertados en dynamodb, pero cuando tenga un rato libre haré un
-        #       reporte que permita más claramente ver lo que pasa con esos tres tipos de salida, imprimiendo
-        #       algunos valores en cada caso a modo ilustrativo.
         with open(f"{carpeta_resources}/metadata.json", "r", encoding="utf-8") as f:
             data_dict = json.load(f)
 
