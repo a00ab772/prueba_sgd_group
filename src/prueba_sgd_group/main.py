@@ -23,7 +23,7 @@ if not logger.handlers:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-carpeta_last = f"{os.path.abspath(os.path.dirname(__file__))}/resources"
+carpeta_resources = f"{os.path.abspath(os.path.dirname(__file__))}/resources"
 
 
 class SparkHandler:
@@ -71,10 +71,10 @@ class SparkHandler:
         dfs = {}
 
         logger.debug("""
-        
-        PROCESANDO LAS SECCIÓN DE 'inputs' ...
-        ======================================
-        """)
+
+            PROCESANDO LAS SECCIÓN DE 'inputs' ...
+            ======================================
+            """)
         for input_config in dataflow.get("inputs", []):
             name = input_config["name"]
             fmt = input_config["config"]["format"]
@@ -98,20 +98,18 @@ class SparkHandler:
                     logger.error(f"Excepción de Java: {e.java_exception}")
                 raise e
 
-
         logger.debug(""" 
-        
-        [+] Atendiendo al enunciado de la prueba, únicamente vamos a procesar los datos provinientes de la clave 'input_data'. He asumido que la clave 'parquet_data' puede ignorarse, ya que entiendo que no aporta valor para los requisitos que queremos cumplir en esta prueba.  
-        
-        """)
+
+            [+] Atendiendo al enunciado de la prueba, únicamente vamos a procesar los datos provinientes de la clave 'input_data'. He asumido que la clave 'parquet_data' puede ignorarse, ya que entiendo que no aporta valor para los requisitos que queremos cumplir en esta prueba.  
+
+            """)
         df_transformado = dfs["demo_data"]
 
-
         logger.debug("""
-        
-        PROCESANDO LAS SECCIÓN DE 'transformations' ...
-        ===============================================
-        """)
+
+            PROCESANDO LAS SECCIÓN DE 'transformations' ...
+            ===============================================
+            """)
         transformations = dataflow["transformations"]
 
         for transformation in transformations:
@@ -135,28 +133,35 @@ class SparkHandler:
                 group_fields = t_config["group_fields"]
                 aggregations = t_config["aggregations"]
 
-                # Nota: incluyo en el group el campo load_date para evitar que falle la escritura de la sección de 'output' que particiona por este campo
+                # Nota: incluyo en el group el campo load_date para evitar que falle la escritura de la sección de 'output', ya que he visto que se está incluyendo ese nombre en el particionamiento.
                 columnas_de_particionado = [col for col in ["load_date"] if col in df_transformado.columns]
                 columnas_de_agregacion = list(set(group_fields + columnas_de_particionado))
 
                 condicion_de_agregacion = [F.expr(agg_str) for agg_str in aggregations]
                 df_transformado = df_transformado.groupBy(*columnas_de_agregacion).agg(*condicion_de_agregacion)
 
-            logger.debug(f" [+] Aplicamos al dataframe el siguiente elemento de la lista de 'transformations': '{t_type}' ==> {t_config}.\n\n")
+                # Garantizar un orden determinista de columnas tras la agregación
+                columnas_deseadas = ["provincia", "municipio", "sexo", "total_ambos_sexos", "load_date"]
+                columnas_existentes = [col for col in columnas_deseadas if col in df_transformado.columns]
+                df_transformado = df_transformado.select(*columnas_existentes)
+
+            logger.debug(
+                f" [+] Aplicamos al dataframe el siguiente elemento de la lista de 'transformations': '{t_type}' ==> {t_config}.\n\n")
             if logger.isEnabledFor(logging.DEBUG):
                 df_transformado.show(truncate=False)
 
-        logger.debug(f" [+] La variable 'df_transformado' contiene el resultado de todas las transformaciones aplicadas.\n")
+        logger.debug(
+            f" [+] La variable 'df_transformado' contiene el resultado de todas las transformaciones aplicadas.\n")
         if logger.isEnabledFor(logging.DEBUG):
             df_transformado.show(truncate=False)
             df_transformado.explain()
 
         logger.debug("""
-        
-        ***************************************
-        PROCESANDO LAS SECCIÓN DE 'outputs' ...
-        ***************************************
-        """)
+
+            ***************************************
+            PROCESANDO LAS SECCIÓN DE 'outputs' ...
+            ***************************************
+            """)
 
         outputs = dataflow["outputs"]
 
@@ -167,11 +172,12 @@ class SparkHandler:
             out_config = output["config"]
 
             if out_type == "file":
-                ruta_salida = f"{carpeta_last}{out_config['path']}"
+                ruta_salida = f"{carpeta_resources}{out_config['path']}"
                 file_format = out_config["format"]
                 save_mode = out_config["save_mode"]
 
-                writer = df_transformado.write.mode(save_mode)#.option("header", "true").option("inferSchema", "true")#.option("compression", "snappy")
+                # Forzamos opción header=True
+                writer = df_transformado.write.mode(save_mode).option("header", "true")
 
                 if "partition" in out_config:
                     writer = writer.partitionBy(out_config["partition"])
@@ -179,9 +185,11 @@ class SparkHandler:
                 if file_format == "parquet":
                     writer.parquet(ruta_salida)
 
-                logger.debug(f" [+] Acción de escritura ===> '{out_type}'    |   '{save_mode}' | destino: '{ruta_salida}' {file_format} files.\n\n")
+                logger.debug(
+                    f" [+] Acción de escritura ===> '{out_type}'    |   '{save_mode}' | destino: '{ruta_salida}' {file_format} files.\n\n")
 
-                logger.debug(f" [+] Adicionalmente escribo en {ruta_salida}/{out_name}.csv el csv resultante, para que podamos comprobar la salida con un editor de texto.\n\n")
+                logger.debug(
+                    f" [+] Adicionalmente escribo en {ruta_salida}/{out_name}.csv el csv resultante, para que podamos comprobar la salida con un editor de texto.\n\n")
                 writer.csv(f"{ruta_salida}/{out_name}.csv")
 
             elif out_type == "table":
@@ -193,15 +201,15 @@ class SparkHandler:
                 rows = df_transformado.collect()
 
                 logger.debug(f""" 
-                    [+] Escribiendo {len(rows)} registros en la tabla de DynamoDB: {out_table_name} (Modo: {out_save_mode}).
-                    
-                        He de resaltar que al haber elegido DynamoDB como base de datos de destino para persistir la salida
-                        de tipo tabla, no es necesario distinguir entre 'append' y 'merge', ya que ambas serán resueltas
-                        mediante dynamodb_client.put_item(...).
-                        
-                        Esto se debe a que en DynamoDB, un put_item funciona de manera nativa como un upsert,
-                        creando el elemento si no existe o lo sobrescribe por completo si la clave primaria coincide. 
-                    """)
+                        [+] Escribiendo {len(rows)} registros en la tabla de DynamoDB: {out_table_name} (Modo: {out_save_mode}).
+
+                            He de resaltar que al haber elegido DynamoDB como base de datos de destino para persistir la salida
+                            de tipo tabla, no es necesario distinguir entre 'append' y 'merge', ya que ambas serán resueltas
+                            mediante dynamodb_client.put_item(...).
+
+                            Esto se debe a que en DynamoDB, un put_item funciona de manera nativa como un upsert,
+                            creando el elemento si no existe o lo sobrescribe por completo si la clave primaria coincide. 
+                        """)
 
                 for row in rows:
                     item = {}

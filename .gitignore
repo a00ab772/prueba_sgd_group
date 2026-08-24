@@ -1,10 +1,11 @@
 # Python y compilados
 __pycache__/
-*.py[cod]
+*.py
 *$py.class
 .venv/
 venv/
 ENV/
+uv.lock
 
 # PyCharm y configuraciones de IDE
 .idea/
@@ -17,6 +18,8 @@ derby.log
 # Archivos de salida, datos generados, historicos y parquet/csv temporales de test
 src/prueba_sgd_group/resources/data/demo/output/
 src/prueba_sgd_group/resources/data/demo/historic/
+src/prueba_sgd_group/resources/data_reducido/demo/output/
+src/prueba_sgd_group/resources/data_reducido/demo/historic/
 
 # Sistema operativo y otros
 .DS_Store
