@@ -116,8 +116,8 @@ Para mi solución he hecho esta selección:
          ```
 
         * para merge en la tabla `raw_demo`, utilizaremos una clave sort key compuesta con los campos municipio y sexo: 
-  
-          ```shell
+
+        ```shell
          dynamodb_client.create_table(
             TableName="raw_demo",
             KeySchema=[
@@ -131,9 +131,6 @@ Para mi solución he hecho esta selección:
             BillingMode="PAY_PER_REQUEST"
         )   
          ```
-  
-      
-
   * [AWS S3](https://aws.amazon.com/es/s3/) como sistema de almacenamiento de archivos para guardar los CSV, el archivo 
     metadata.json y los archivos resultantes de la transformación cuando out_type == "file".
   * [AWS Secrets Manager](https://aws.amazon.com/es/secrets-manager) para almacenar y recuperar las credenciales de acceso
