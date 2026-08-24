@@ -91,7 +91,14 @@ class SparkHandler:
                 reader = reader.option(key, value)
 
             try:
-                dfs[name] = reader.load(full_path)
+                df_loaded = reader.load(full_path)
+                # Limpieza de los puntos de millares en la columna total
+                if "total" in df_loaded.columns:
+                    df_loaded = df_loaded.withColumn(
+                        "total",
+                        F.replace(F.col("total").cast("string"), F.lit("."), F.lit("")).cast("long")
+                    )
+                dfs[name] = df_loaded
             except Exception as e:
                 logger.error(f"Fallo al cargar en Spark desde {full_path}: {e}")
                 if hasattr(e, 'java_exception'):
@@ -133,14 +140,12 @@ class SparkHandler:
                 group_fields = t_config["group_fields"]
                 aggregations = t_config["aggregations"]
 
-                # Nota: incluyo en el group el campo load_date para evitar que falle la escritura de la sección de 'output', ya que he visto que se está incluyendo ese nombre en el particionamiento.
                 columnas_de_particionado = [col for col in ["load_date"] if col in df_transformado.columns]
                 columnas_de_agregacion = list(set(group_fields + columnas_de_particionado))
 
                 condicion_de_agregacion = [F.expr(agg_str) for agg_str in aggregations]
                 df_transformado = df_transformado.groupBy(*columnas_de_agregacion).agg(*condicion_de_agregacion)
 
-                # Garantizar un orden determinista de columnas tras la agregación
                 columnas_deseadas = ["provincia", "municipio", "sexo", "total_ambos_sexos", "load_date"]
                 columnas_existentes = [col for col in columnas_deseadas if col in df_transformado.columns]
                 df_transformado = df_transformado.select(*columnas_existentes)
@@ -176,7 +181,6 @@ class SparkHandler:
                 file_format = out_config["format"]
                 save_mode = out_config["save_mode"]
 
-                # Forzamos opción header=True
                 writer = df_transformado.write.mode(save_mode).option("header", "true")
 
                 if "partition" in out_config:
@@ -198,35 +202,35 @@ class SparkHandler:
                 region_name = os.getenv("AWS_DEFAULT_REGION", "eu-central-1")
 
                 dynamodb_client = boto3.client("dynamodb", region_name=region_name)
-                rows = df_transformado.collect()
 
-                logger.debug(f""" 
-                        [+] Escribiendo {len(rows)} registros en la tabla de DynamoDB: {out_table_name} (Modo: {out_save_mode}).
+                rows = [row.asDict() for row in df_transformado.collect()]
 
-                            He de resaltar que al haber elegido DynamoDB como base de datos de destino para persistir la salida
-                            de tipo tabla, no es necesario distinguir entre 'append' y 'merge', ya que ambas serán resueltas
-                            mediante dynamodb_client.put_item(...).
-
-                            Esto se debe a que en DynamoDB, un put_item funciona de manera nativa como un upsert,
-                            creando el elemento si no existe o lo sobrescribe por completo si la clave primaria coincide. 
-                        """)
-
-                for row in rows:
+                for row_dict in rows:
                     item = {}
-                    for field in df_transformado.columns:
-                        val = row[field]
+                    logger.debug("Conviertimos los campos a tipos de DynamoDB (S, N, BOOL)")
+                    for field, val in row_dict.items():
                         if val is not None:
                             if isinstance(val, (int, float)):
-                                item[field] = {"N": str(val)}
+                                item[field] = {"N": str(int(val) if isinstance(val, float) and val.is_integer() else val)}
+                            elif isinstance(val, bool):
+                                item[field] = {"BOOL": val}
                             else:
                                 item[field] = {"S": str(val)}
 
-                    dynamodb_client.put_item(
-                        TableName=out_table_name,
-                        Item=item
-                    )
+                    mun = row_dict.get("municipio", "")
+                    sex = row_dict.get("sexo", "")
+                    ldate = row_dict.get("load_date", "")
 
-                logger.debug(
-                    f" [+] Acción de escritura ===> '{out_type}' (DynamoDB) : '{out_table_name}' | Modo de escritura : '{out_save_mode}'.\n\n")
+                    logger.debug("Asignamos sort key distintas para simular el efecto de append o merge en la tabla correspondiente")
+                    if out_table_name == "demo":
+                        item["municipio_sexo_date"] = {"S": f"{mun}#{sex}#{ldate}"}
+                    else:
+                        item["municipio_sexo"] = {"S": f"{mun}#{sex}"}
+
+                    if item:
+                        dynamodb_client.put_item(
+                            TableName=out_table_name,
+                            Item=item
+                        )
 
         return df_transformado

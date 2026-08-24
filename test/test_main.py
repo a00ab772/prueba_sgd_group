@@ -146,22 +146,32 @@ def setUpModule():
         )
 
     dynamodb_client = boto3.client("dynamodb", region_name=os.getenv("AWS_DEFAULT_REGION", "eu-central-1"))
-    for table_name in ["demo", "raw_demo"]:
-        try:
-            dynamodb_client.create_table(
-                TableName=table_name,
-                KeySchema=[
-                    {"AttributeName": "municipio", "KeyType": "HASH"},
-                    {"AttributeName": "provincia", "KeyType": "RANGE"}
-                ],
-                AttributeDefinitions=[
-                    {"AttributeName": "municipio", "AttributeType": "S"},
-                    {"AttributeName": "provincia", "AttributeType": "S"}
-                ],
-                BillingMode="PAY_PER_REQUEST"
-            )
-        except Exception as e:
-            logger.info(f"La tabla de DynamoDB mock '{table_name}' ya existe o se omitió: {e}")
+
+    dynamodb_client.create_table(
+        TableName="demo",
+        KeySchema=[
+            {"AttributeName": "provincia", "KeyType": "HASH"},
+            {"AttributeName": "municipio_sexo_date", "KeyType": "RANGE"}
+        ],
+        AttributeDefinitions=[
+            {"AttributeName": "provincia", "AttributeType": "S"},
+            {"AttributeName": "municipio_sexo_date", "AttributeType": "S"}
+        ],
+        BillingMode="PAY_PER_REQUEST"
+    )
+
+    dynamodb_client.create_table(
+        TableName="raw_demo",
+        KeySchema=[
+            {"AttributeName": "provincia", "KeyType": "HASH"},
+            {"AttributeName": "municipio_sexo", "KeyType": "RANGE"}
+        ],
+        AttributeDefinitions=[
+            {"AttributeName": "provincia", "AttributeType": "S"},
+            {"AttributeName": "municipio_sexo", "AttributeType": "S"}
+        ],
+        BillingMode="PAY_PER_REQUEST"
+    )
 
     # Configuración local de Spark y Hadoop
     os.environ["HADOOP_HOME"] = "C:\\hadoop"
