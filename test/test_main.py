@@ -5,7 +5,7 @@ import os
 import csv
 
 # Descomentad la linea para mostrar la salida logger.debug(...)
-# os.environ["LOG_LEVEL"] = "DEBUG"
+os.environ["LOG_LEVEL"] = "DEBUG"
 # Descomentad la linea que os interese mostrar en el logging
 # os.environ["FORMATO_LOG"] = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 # os.environ["FORMATO_LOG"] = "%(levelname)s - %(message)s"
@@ -597,6 +597,11 @@ class TestAirflow(TestBase):
 class Test_del_apartado_5(TestBase):
 
     def test_filas_distintas_entre_csv_2024_y_csv_2025(self):
+        logger.info("""
+        La función test_filas_distintas_entre_csv_2024_y_csv_2025 quiere responder a la pregunta... 
+        
+        ¿Qué filas han cambiado del fichero de 2024 al fichero de 2025?
+        """)
         data2024 = (
             self.spark_handler.spark_session.read
             .option("header", "true")
@@ -616,10 +621,39 @@ class Test_del_apartado_5(TestBase):
         filas_solo_en_data2024 = data2024.exceptAll(data2025)
         filas_solo_en_data2025 = data2025.exceptAll(data2024)
 
-        self.assertEqual(filas_solo_en_data2024.count(), 8)
-        self.assertEqual(filas_solo_en_data2025.count(), 8)
+
+        count_2024 = filas_solo_en_data2024.count()
+        count_2025 = filas_solo_en_data2025.count()
+
+        logger.info("""
+            Filas de data2024.csv que no estan en data2025.csv...
+            """)
+        for fila in filas_solo_en_data2024.collect():
+            logger.info(f" {fila.asDict()}")
+
+        logger.info("""
+            Filas de data2025.csv que no estan en data2024.csv...
+            """)
+        for fila in filas_solo_en_data2025.collect():
+            logger.info(f" {fila.asDict()}")
+
+        logger.info(f"\n\n► Hay {count_2024} filas en el archivo data2024.csv que no existen en el archivo data2025.csv")
+        self.assertEqual(count_2024, 8, msg=f"Error en filas 2024: Se esperaban 8 pero se obtuvieron {count_2024}")
+
+        logger.info(f"\n► Hay {count_2025} filas en el archivo data2025.csv que no existen en el archivo data2024.csv")
+        self.assertEqual(count_2024, 8, msg=f"Error en la verificación del archivo data2024.csv: Se esperaban 8 filas que no estuvieran en el archivo data2025.csv, pero en realidad hay {count_2024} filas.")
+        self.assertEqual(count_2025, 8, msg=f"Error en la verificación del archivo data2025.csv: Se esperaban 8 filas que no estuvieran en el archivo data2024.csv, pero en realidad hay {count_2025} filas.")
 
     def test_discrepancias_en_datos_agregados_en_los_csv_de_entrada(self):
+        logger.info("""
+        La función test_discrepancias_en_datos_agregados_en_los_csv_de_entrada quiere responder a la pregunta... 
+
+        ¿Qué problemas de calidad del dato tiene el fichero de 2025 (Ambos sexos != Hombres + Mujeres)?
+        
+        Para resolverlo, agrego los datos del csv por provincia y municipio y comparo el resultado de sumar hombres y mujeres con el número consignado en la fila "Ambos sexos".
+        
+        Nota: He extendido la evaluación para que ambos csv. 
+        """)
         for year in ["2024", "2025"]:
             df = (
                 self.spark_handler.spark_session.read
@@ -652,14 +686,28 @@ class Test_del_apartado_5(TestBase):
             )
             num_concordancias = df_concordancias.count()
 
-            if year == "2024":
-                self.assertEqual(num_discrepancias, 235)
-                self.assertEqual(num_concordancias, 7521)
-                self.assertEqual(num_municipios, num_discrepancias + num_concordancias)
-            else:
-                self.assertEqual(num_discrepancias, 236)
-                self.assertEqual(num_concordancias, 7520)
-                self.assertEqual(num_municipios, num_discrepancias + num_concordancias)
+            exp_discrepancias = 235 if year == "2024" else 236
+            exp_concordancias = 7521 if year == "2024" else 7520
+
+            logger.info(f"""
+            data{year}.csv
+            ..............
+             - Número de filas agregadas por provincia y municipio en las que la (Ambos sexos != Hombres + Mujeres) : {num_discrepancias}
+             - Número de filas agregadas por provincia y municipio en las que la (Ambos sexos == Hombres + Mujeres) : {num_concordancias}
+             - Número de municipios: {num_municipios}""")
+
+            self.assertEqual(
+                num_discrepancias, exp_discrepancias,
+                msg=f"El archivo data{year}.csv tiene {num_discrepancias} filas en las que la (Ambos sexos != Hombres + Mujeres). Este número es incorrecto, esperabamos que hubiesen {exp_discrepancias}."
+            )
+            self.assertEqual(
+                num_concordancias, exp_concordancias,
+                msg=f"El archivo data{year}.csv tiene {num_concordancias} filas en las que la (Ambos sexos == Hombres + Mujeres). Este número es incorrecto, esperabamos que hubiesen {exp_concordancias}."
+            )
+            self.assertEqual(
+                num_municipios, num_discrepancias + num_concordancias,
+                msg=f"[{year}] La suma de municipios no coincide con el total de [(Ambos sexos == Hombres + Mujeres) + (Ambos sexos != Hombres + Mujeres)]"
+            )
 
 def limpiar_hilos_al_finalizar_el_test_de_pycharm():
     try:
