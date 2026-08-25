@@ -221,7 +221,7 @@ class SparkHandler:
                     sex = row_dict.get("sexo", "")
                     ldate = row_dict.get("load_date", "")
 
-                    logger.debug("Asignamos sort key distintas para simular el efecto de append o merge en la tabla correspondiente")
+                    # Asignamos sort key distintas para simular el efecto de append o merge en la tabla correspondiente
                     if out_table_name == "demo":
                         item["municipio_sexo_date"] = {"S": f"{mun}#{sex}#{ldate}"}
                     else:
