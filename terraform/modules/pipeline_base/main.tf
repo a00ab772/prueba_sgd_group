@@ -28,3 +28,11 @@ resource "aws_dynamodb_table" "raw_demo" {
 resource "aws_secretsmanager_secret" "emr_credentials" {
   name = "${var.project_name}-credentials-${var.environment}"
 }
+
+# Optional: populate the secret from a variable instead of the console.
+# Leave emr_credentials_secret_string unset to manage the value out of band.
+resource "aws_secretsmanager_secret_version" "emr_credentials_version" {
+  count         = var.emr_credentials_secret_string == null ? 0 : 1
+  secret_id     = aws_secretsmanager_secret.emr_credentials.id
+  secret_string = var.emr_credentials_secret_string
+}
