@@ -1,4 +1,3 @@
-# MWAA requires the source bucket to be versioned.
 resource "aws_s3_bucket_versioning" "pipeline_bucket_versioning" {
   bucket = aws_s3_bucket.pipeline_bucket.id
 

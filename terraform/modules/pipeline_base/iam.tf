@@ -1,10 +1,9 @@
 data "aws_region" "current" {}
 data "aws_caller_identity" "current" {}
 
-# ---------------------------------------------------------------------------
-# MWAA execution role: lets Airflow read/write the S3 bucket, write logs,
-# read the secret and launch/monitor the EMR cluster.
-# ---------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------
+# MWAA role: permite leer y escribir en S3, escribir logs, leer secretos y lanzar el cluster de EMR
+# -------------------------------------------------------------------------------------------------
 resource "aws_iam_role" "mwaa_execution_role" {
   name = "${var.project_name}-mwaa-exec-${var.environment}"
 
@@ -109,10 +108,9 @@ resource "aws_iam_role_policy" "mwaa_execution_policy" {
   })
 }
 
-# ---------------------------------------------------------------------------
-# EMR service role: lets the EMR control plane manage the cluster's AWS
-# resources (EC2 instances, security groups, etc.) on the customer's behalf.
-# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------..
+# EMR role: permite al control plane de EMR interactuar con los recursos de AWS
+# -----------------------------------------------------------------------------
 resource "aws_iam_role" "emr_service_role" {
   name = "${var.project_name}-emr-service-${var.environment}"
 
@@ -132,8 +130,8 @@ resource "aws_iam_role_policy_attachment" "emr_service_role_policy" {
 }
 
 # ---------------------------------------------------------------------------
-# EMR EC2 instance profile role: assumed by the cluster nodes themselves,
-# used by the Spark job to reach S3, DynamoDB and Secrets Manager.
+# EMR EC2 instance profile role: los jobs ejecutados en los nodos del cluster
+# pueden interactuar con S3, DynamoDB y Secrets Manager.
 # ---------------------------------------------------------------------------
 resource "aws_iam_role" "emr_instance_profile_role" {
   name = "${var.project_name}-emr-ec2-${var.environment}"

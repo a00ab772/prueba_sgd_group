@@ -22,8 +22,6 @@ resource "aws_emr_cluster" "spark_cluster" {
     instance_count = var.emr_core_instance_count
   }
 
-  # Cluster stays up so Airflow can add steps to it repeatedly (EmrAddStepsOperator)
-  # instead of Terraform creating/destroying a cluster per DAG run.
   keep_job_flow_alive_when_no_steps = true
   termination_protection            = false
 
