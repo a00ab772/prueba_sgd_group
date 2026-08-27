@@ -16,12 +16,9 @@ metastore_db/
 derby.log
 
 # Archivos de salida, datos generados, historicos y parquet/csv temporales de test
-src/prueba_sgd_group/resources/data/demo/output/
-src/prueba_sgd_group/resources/data/demo/historic/
-src/prueba_sgd_group/resources/data_reducido/demo/output/
-src/prueba_sgd_group/resources/data_reducido/demo/historic/
-src/prueba_sgd_group/resources/data_1_registro/demo/output/
-src/prueba_sgd_group/resources/data_1_registro/demo/historic/
+src/prueba_sgd_group/prueba_sgd_group/resources/data/demo/output/
+src/prueba_sgd_group/prueba_sgd_group/resources/data_reducido/demo/output/
+src/prueba_sgd_group/prueba_sgd_group/resources/data_1_registro/demo/output/
 
 # Sistema operativo y otros
 .DS_Store
