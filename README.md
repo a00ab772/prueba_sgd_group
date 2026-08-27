@@ -1649,8 +1649,284 @@ Añadimos infrastructura como código con Terraform y github workflows CI/CD:
 
 Validamos los archivos de terraform sin conectar con el entorno de AWS:
 
-![validacion de la configuracion terraform](imagenes/validacion_terraform.png)
+* dev:
 
-Si vamos al proyecto en Github podremos ver los workflows en la sección de Actions:
+```shell
+user@DESKTOP-SCNMK3I MINGW64 ~/Documents/PycharmProjects/prueba_sgd_group/terraform
+Thu Aug 27 08:07:49
+$ cd environments/dev/
+
+user@DESKTOP-SCNMK3I MINGW64 ~/Documents/PycharmProjects/prueba_sgd_group/terraform/environments/dev
+Thu Aug 27 08:07:53
+$ terraform init -backend=false
+Initializing modules...
+- pipeline in ..\..\modules\pipeline_base
+
+Initializing provider plugins...
+- Finding hashicorp/aws versions matching "~> 6.0"...
+- Installing hashicorp/aws v6.62.0...
+- Installed hashicorp/aws v6.62.0 (signed by HashiCorp)
+
+Terraform has created a lock file .terraform.lock.hcl to record the provider
+selections it made above. Include this file in your version control repository
+so that Terraform can guarantee to make the same selections by default when
+you run "terraform init" in the future.
+
+Terraform has been successfully initialized!
+
+You may now begin working with Terraform. Try running "terraform plan" to see
+any changes that are required for your infrastructure. All Terraform commands
+should now work.
+
+If you ever set or change modules or backend configuration for Terraform,
+rerun this command to reinitialize your working directory. If you forget, other
+commands will detect it and remind you to do so if necessary.
+
+user@DESKTOP-SCNMK3I MINGW64 ~/Documents/PycharmProjects/prueba_sgd_group/terraform/environments/dev
+Thu Aug 27 08:08:14
+$ terraform validate
+╷
+│ Warning: Deprecated value used
+│
+│   with module.pipeline.aws_iam_role_policy.mwaa_execution_policy,
+│   on ..\..\modules\pipeline_base\iam.tf line 30, in resource "aws_iam_role_policy" "mwaa_execution_policy":
+│   30:   policy = jsonencode({
+│   31:     Version = "2012-10-17"
+│   32:     Statement = [
+│   33:       {
+│   34:         Effect   = "Allow"
+│   35:         Action   = "airflow:PublishMetrics"
+│   36:         Resource = "arn:aws:airflow:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:environment/${var.project_name}-mwaa-${var.environment}"
+│   37:       },
+│   38:       {
+│   39:         Effect = "Allow"
+│   40:         Action = [
+│   41:           "s3:GetObject*",
+│   42:           "s3:GetBucket*",
+│   43:           "s3:List*",
+│   44:           "s3:PutObject*"
+│   45:         ]
+│   46:         Resource = [
+│   47:           aws_s3_bucket.pipeline_bucket.arn,
+│   48:           "${aws_s3_bucket.pipeline_bucket.arn}/*"
+│   49:         ]
+│   50:       },
+│   51:       {
+│   52:         Effect = "Allow"
+│   53:         Action = [
+│   54:           "logs:CreateLogStream",
+│   55:           "logs:CreateLogGroup",
+│   56:           "logs:PutLogEvents",
+│   57:           "logs:GetLogEvents",
+│   58:           "logs:GetLogRecord",
+│   59:           "logs:GetLogGroupFields",
+│   60:           "logs:GetQueryResults",
+│   61:           "logs:DescribeLogGroups"
+│   62:         ]
+│   63:         Resource = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:airflow-${var.project_name}-mwaa-${var.environment}-*"
+│   64:       },
+│   65:       {
+│   66:         Effect   = "Allow"
+│   67:         Action   = "cloudwatch:PutMetricData"
+│   68:         Resource = "*"
+│   69:       },
+│   70:       {
+│   71:         Effect = "Allow"
+│   72:         Action = [
+│   73:           "sqs:ChangeMessageVisibility",
+│   74:           "sqs:DeleteMessage",
+│   75:           "sqs:GetQueueAttributes",
+│   76:           "sqs:GetQueueUrl",
+│   77:           "sqs:ReceiveMessage",
+│   78:           "sqs:SendMessage"
+│   79:         ]
+│   80:         Resource = "arn:aws:sqs:${data.aws_region.current.name}:*:airflow-celery-*"
+│   81:       },
+│   82:       {
+│   83:         Effect = "Allow"
+│   84:         Action = [
+│   85:           "elasticmapreduce:RunJobFlow",
+│   86:           "elasticmapreduce:AddJobFlowSteps",
+│   87:           "elasticmapreduce:DescribeCluster",
+│   88:           "elasticmapreduce:DescribeStep",
+│   89:           "elasticmapreduce:ListSteps",
+│   90:           "elasticmapreduce:TerminateJobFlows",
+│   91:           "elasticmapreduce:ListInstances"
+│   92:         ]
+│   93:         Resource = "*"
+│   94:       },
+│   95:       {
+│   96:         Effect   = "Allow"
+│   97:         Action   = "secretsmanager:GetSecretValue"
+│   98:         Resource = aws_secretsmanager_secret.emr_credentials.arn
+│   99:       },
+│  100:       {
+│  101:         Effect = "Allow"
+│  102:         Action = "iam:PassRole"
+│  103:         Resource = [
+│  104:           aws_iam_role.emr_service_role.arn,
+│  105:           aws_iam_role.emr_instance_profile_role.arn
+│  106:         ]
+│  107:       }
+│  108:     ]
+│  109:   })
+│
+│   The deprecation originates from module.pipeline.data.aws_region.current.name
+│
+│ name is deprecated. Use region instead.
+╵
+Success! The configuration is valid, but there were some validation warnings as shown above.
+```
+
+* prod:
+
+```shell
+user@DESKTOP-SCNMK3I MINGW64 ~/Documents/PycharmProjects/prueba_sgd_group/terraform/environments/dev
+Thu Aug 27 08:08:40
+$ cd ../prod/
+
+user@DESKTOP-SCNMK3I MINGW64 ~/Documents/PycharmProjects/prueba_sgd_group/terraform/environments/prod
+Thu Aug 27 08:10:15
+$ terraform init -backend=false
+Initializing modules...
+- pipeline in ..\..\modules\pipeline_base
+
+Initializing provider plugins...
+- Finding hashicorp/aws versions matching "~> 6.0"...
+- Installing hashicorp/aws v6.62.0...
+- Installed hashicorp/aws v6.62.0 (signed by HashiCorp)
+
+Terraform has created a lock file .terraform.lock.hcl to record the provider
+selections it made above. Include this file in your version control repository
+so that Terraform can guarantee to make the same selections by default when
+you run "terraform init" in the future.
+
+Terraform has been successfully initialized!
+
+You may now begin working with Terraform. Try running "terraform plan" to see
+any changes that are required for your infrastructure. All Terraform commands
+should now work.
+
+If you ever set or change modules or backend configuration for Terraform,
+rerun this command to reinitialize your working directory. If you forget, other
+commands will detect it and remind you to do so if necessary.
+
+user@DESKTOP-SCNMK3I MINGW64 ~/Documents/PycharmProjects/prueba_sgd_group/terraform/environments/prod
+Thu Aug 27 08:10:32
+$ terraform validate
+╷
+│ Warning: Deprecated value used
+│
+│   with module.pipeline.aws_iam_role_policy.mwaa_execution_policy,
+│   on ..\..\modules\pipeline_base\iam.tf line 30, in resource "aws_iam_role_policy" "mwaa_execution_policy":
+│   30:   policy = jsonencode({
+│   31:     Version = "2012-10-17"
+│   32:     Statement = [
+│   33:       {
+│   34:         Effect   = "Allow"
+│   35:         Action   = "airflow:PublishMetrics"
+│   36:         Resource = "arn:aws:airflow:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:environment/${var.project_name}-mwaa-${var.environment}"
+│   37:       },
+│   38:       {
+│   39:         Effect = "Allow"
+│   40:         Action = [
+│   41:           "s3:GetObject*",
+│   42:           "s3:GetBucket*",
+│   43:           "s3:List*",
+│   44:           "s3:PutObject*"
+│   45:         ]
+│   46:         Resource = [
+│   47:           aws_s3_bucket.pipeline_bucket.arn,
+│   48:           "${aws_s3_bucket.pipeline_bucket.arn}/*"
+│   49:         ]
+│   50:       },
+│   51:       {
+│   52:         Effect = "Allow"
+│   53:         Action = [
+│   54:           "logs:CreateLogStream",
+│   55:           "logs:CreateLogGroup",
+│   56:           "logs:PutLogEvents",
+│   57:           "logs:GetLogEvents",
+│   58:           "logs:GetLogRecord",
+│   59:           "logs:GetLogGroupFields",
+│   60:           "logs:GetQueryResults",
+│   61:           "logs:DescribeLogGroups"
+│   62:         ]
+│   63:         Resource = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:airflow-${var.project_name}-mwaa-${var.environment}-*"
+│   64:       },
+│   65:       {
+│   66:         Effect   = "Allow"
+│   67:         Action   = "cloudwatch:PutMetricData"
+│   68:         Resource = "*"
+│   69:       },
+│   70:       {
+│   71:         Effect = "Allow"
+│   72:         Action = [
+│   73:           "sqs:ChangeMessageVisibility",
+│   74:           "sqs:DeleteMessage",
+│   75:           "sqs:GetQueueAttributes",
+│   76:           "sqs:GetQueueUrl",
+│   77:           "sqs:ReceiveMessage",
+│   78:           "sqs:SendMessage"
+│   79:         ]
+│   80:         Resource = "arn:aws:sqs:${data.aws_region.current.name}:*:airflow-celery-*"
+│   81:       },
+│   82:       {
+│   83:         Effect = "Allow"
+│   84:         Action = [
+│   85:           "elasticmapreduce:RunJobFlow",
+│   86:           "elasticmapreduce:AddJobFlowSteps",
+│   87:           "elasticmapreduce:DescribeCluster",
+│   88:           "elasticmapreduce:DescribeStep",
+│   89:           "elasticmapreduce:ListSteps",
+│   90:           "elasticmapreduce:TerminateJobFlows",
+│   91:           "elasticmapreduce:ListInstances"
+│   92:         ]
+│   93:         Resource = "*"
+│   94:       },
+│   95:       {
+│   96:         Effect   = "Allow"
+│   97:         Action   = "secretsmanager:GetSecretValue"
+│   98:         Resource = aws_secretsmanager_secret.emr_credentials.arn
+│   99:       },
+│  100:       {
+│  101:         Effect = "Allow"
+│  102:         Action = "iam:PassRole"
+│  103:         Resource = [
+│  104:           aws_iam_role.emr_service_role.arn,
+│  105:           aws_iam_role.emr_instance_profile_role.arn
+│  106:         ]
+│  107:       }
+│  108:     ]
+│  109:   })
+│
+│   The deprecation originates from module.pipeline.data.aws_region.current.name
+│
+│ name is deprecated. Use region instead.
+╵
+Success! The configuration is valid, but there were some validation warnings as shown above.
+```
+
+Añadimos los workflow de Github:
 
 ![github actions](imagenes/github.png)
+
+Para asegurarnos de que los workflow funcionan vamos a usar `act` (nektos/act). Este comando ejecutará los workflows en
+contenedores Docker locales, simulando lo que haría el runner de GitHub. Se puede ejecutar en modo dry run, sin instalar
+los componentes:
+
+```shell
+$ act pull_request -n
+```
+
+![act dry run](imagenes/act_dry_run.png)
+
+o bien lo podemos ejecutar en modo real, instalando los componentes en docker:
+
+```shell
+$ act pull_request
+```
+
+![act](imagenes/act.png)
+
+

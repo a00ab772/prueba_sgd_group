@@ -100,7 +100,7 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.private.id
 }
 
-# MWAA (Apache Airflow) security group
+# Security group for the MWAA (Apache Airflow) environment.
 resource "aws_security_group" "mwaa" {
   name_prefix = "${var.project_name}-mwaa-${var.environment}-"
   vpc_id      = aws_vpc.pipeline_vpc.id
@@ -121,7 +121,7 @@ resource "aws_security_group" "mwaa" {
   }
 }
 
-# MWAA necesita una auto-referencia ingress rule para interactuar con sus propias ENIs
+# MWAA necesita auto-referenciarse
 resource "aws_security_group_rule" "mwaa_self_ingress" {
   type                     = "ingress"
   from_port                = 0
@@ -131,7 +131,7 @@ resource "aws_security_group_rule" "mwaa_self_ingress" {
   source_security_group_id = aws_security_group.mwaa.id
 }
 
-# EMR (Spark) cluster security group; sólo es accesible desde MWAA.
+# EMR (Spark) cluster debe ser únicamente accesible desde MWAA.
 resource "aws_security_group" "emr" {
   name_prefix = "${var.project_name}-emr-${var.environment}-"
   vpc_id      = aws_vpc.pipeline_vpc.id

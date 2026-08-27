@@ -1,3 +1,4 @@
+# MWAA necesita que el bucket tenga el versionado activo
 resource "aws_s3_bucket_versioning" "pipeline_bucket_versioning" {
   bucket = aws_s3_bucket.pipeline_bucket.id
 
@@ -15,7 +16,6 @@ resource "aws_s3_bucket_public_access_block" "pipeline_bucket_block" {
   restrict_public_buckets = true
 }
 
-# Empty "dags/" prefix so dag_s3_path has somewhere to point on first apply.
 resource "aws_s3_object" "dags_folder" {
   bucket       = aws_s3_bucket.pipeline_bucket.id
   key          = "dags/"
@@ -34,7 +34,7 @@ resource "aws_mwaa_environment" "pipeline_airflow" {
 
   network_configuration {
     security_group_ids = [aws_security_group.mwaa.id]
-    subnet_ids          = [for s in aws_subnet.private : s.id]
+    subnet_ids         = [for s in aws_subnet.private : s.id]
   }
 
   webserver_access_mode = "PUBLIC_ONLY"

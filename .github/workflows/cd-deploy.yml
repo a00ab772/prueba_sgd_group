@@ -10,38 +10,48 @@ permissions:
 
 jobs:
   quality-checks:
-    name: Code Quality & Unit Tests
+    name: Verificar calidad de código y ejecutar los unit tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install UV & Python
+      - name: Instalr UV y Python
         uses: astral-sh/setup-uv@v2
         with:
           version: "latest"
 
-      - name: Set up Python
+      - name: Configurar Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Run Linters & Tests
+      - name: Ejecutar Linters & Tests
         run: |
           uv sync
           uv run ruff check src/ dags/
           uv run pytest tests/
 
   deploy-infrastructure:
-    name: Deploy Infrastructure (Terraform)
+    name: Despliegue IaC (Terraform)
     needs: quality-checks
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ./terraform/environments/prod
+    outputs:
+      s3_bucket_name: ${{ steps.tf_outputs.outputs.s3_bucket_name }}
 
     steps:
       - uses: actions/checkout@v4
 
+      # Este rol permite actuar con la infraestructura de los siguientes componentes:
+      # ► EC2 (VPC/subnets/NAT/SGs),
+      # ► IAM (roles/policies/instance profiles),
+      # ► MWAA (Airflow)
+      # ► EMR
+      # ► S3
+      # ► DynamoDB
+      # ► Secrets Manager
       - name: Authenticate with AWS via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -53,20 +63,30 @@ jobs:
         with:
           terraform_version: 1.6.0
 
-      - name: Terraform Init & Apply
+      - name: Terraform Init
         run: |
-          terraform init
-          terraform apply -auto-approve
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="key=prod/terraform.tfstate" \
+            -backend-config="region=eu-central-1" \
+            -backend-config="dynamodb_table=${{ secrets.TF_STATE_LOCK_TABLE }}"
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+
+      - name: Export Terraform Outputs
+        id: tf_outputs
+        run: echo "s3_bucket_name=$(terraform output -raw s3_bucket_name)" >> "$GITHUB_OUTPUT"
 
   deploy-artifacts:
-    name: Deploy Code & DAGs to AWS
+    name: Desplegar código y DAGs en AWS
     needs: deploy-infrastructure
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Authenticate with AWS via OIDC
+      - name: Autenticación con AWS mediante OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::123456789012:role/GitHubActionsProdRole
@@ -74,8 +94,8 @@ jobs:
 
       - name: Sync PySpark Jobs to S3
         run: |
-          aws s3 sync ./src s3://prod-data-pipeline-artifacts/scripts/ --delete
+          aws s3 sync ./src "s3://${{ needs.deploy-infrastructure.outputs.s3_bucket_name }}/scripts/" --delete
 
       - name: Sync Airflow DAGs to MWAA S3
         run: |
-          aws s3 sync ./dags s3://prod-mwaa-dags-bucket/dags/ --delete
+          aws s3 sync ./dags "s3://${{ needs.deploy-infrastructure.outputs.s3_bucket_name }}/dags/" --delete

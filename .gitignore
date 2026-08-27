@@ -23,3 +23,9 @@ src/prueba_sgd_group/prueba_sgd_group/resources/data_1_registro/demo/output/
 # Sistema operativo y otros
 .DS_Store
 Thumbs.db
+
+# Terraform
+terraform/environments/dev/.terraform.lock.hcl
+terraform/environments/prod/.terraform.lock.hcl
+terraform/environments/dev/.terraform/
+terraform/environments/prod/.terraform/

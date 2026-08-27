@@ -1,9 +1,10 @@
 data "aws_region" "current" {}
 data "aws_caller_identity" "current" {}
 
-# -------------------------------------------------------------------------------------------------
-# MWAA role: permite leer y escribir en S3, escribir logs, leer secretos y lanzar el cluster de EMR
-# -------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# MWAA execution role: Airflow tendrá permisos de lectura y escritura al bucket S3, permisos de escritura a cloudwatch logs,
+# permisos de lectura al secret manager y permisos de ejecución y monitorización del cluster de EMR.
+# ---------------------------------------------------------------------------
 resource "aws_iam_role" "mwaa_execution_role" {
   name = "${var.project_name}-mwaa-exec-${var.environment}"
 
@@ -108,9 +109,10 @@ resource "aws_iam_role_policy" "mwaa_execution_policy" {
   })
 }
 
-# ---------------------------------------------------------------------------..
-# EMR role: permite al control plane de EMR interactuar con los recursos de AWS
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# EMR service role: permite al EMR control plane gestionar los recursos de AWS
+# (EC2, security groups, etc.)
+# ---------------------------------------------------------------------------
 resource "aws_iam_role" "emr_service_role" {
   name = "${var.project_name}-emr-service-${var.environment}"
 
@@ -130,8 +132,8 @@ resource "aws_iam_role_policy_attachment" "emr_service_role_policy" {
 }
 
 # ---------------------------------------------------------------------------
-# EMR EC2 instance profile role: los jobs ejecutados en los nodos del cluster
-# pueden interactuar con S3, DynamoDB y Secrets Manager.
+# EMR EC2 instance profile role: se asigna los cluster nodes para permitir que
+# los jobs de spark puedan acceder a S3, DynamoDB y Secrets Manager.
 # ---------------------------------------------------------------------------
 resource "aws_iam_role" "emr_instance_profile_role" {
   name = "${var.project_name}-emr-ec2-${var.environment}"

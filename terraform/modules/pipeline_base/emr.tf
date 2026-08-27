@@ -22,6 +22,7 @@ resource "aws_emr_cluster" "spark_cluster" {
     instance_count = var.emr_core_instance_count
   }
 
+  # El cluster de Airflow permanece levantado para la ejecución repetittiva (EmrAddStepsOperator)
   keep_job_flow_alive_when_no_steps = true
   termination_protection            = false
 
