@@ -1617,6 +1617,7 @@ Eligiéndola de ese modo conseguimos conseguimos que se modifique el registro en
 **Conclusión final.** Aunque las salidas sean las mismas, sólo se debe a que la ejecución está hecha el mismo día:
 
 ► Si el `merge` se ejecutase en días distintos seguiríamos teniendo 6 filas en `raw_demo`
+
 ► Si el `append` se ejecutase en días distintos tendríamos 8 filas en `demo` en lugar de las 6 obtenidas.
 
 ## Obtener un informe del porcentaje de cobertura de código en las pruebas
