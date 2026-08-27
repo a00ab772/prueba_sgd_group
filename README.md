@@ -660,6 +660,75 @@ Y lanza los tests:
 
 ![Resultado de los tests](imagenes/resultado_tests.png)
 
+Alternativamente puede utilizarse uv para lanzar los tests desde línea de comando:
+
+```shell
+user@DESKTOP-SCNMK3I MINGW64 ~/Documents/PycharmProjects/prueba_sgd_group
+Thu Aug 27 10:44:51
+$ uv run pytest test/test_main.py -s
+==================================================================================== test session starts ====================================================================================
+platform win32 -- Python 3.13.15, pytest-9.1.1, pluggy-1.6.0
+rootdir: C:\Users\user\Documents\PycharmProjects\prueba_sgd_group
+configfile: pyproject.toml
+plugins: anyio-4.14.2, cov-7.1.0, mock-3.15.1
+collected 7 items
+
+test\test_main.py :: loading settings :: url = jar:file:/C:/Users/user/Documents/PycharmProjects/prueba_sgd_group/.venv/Lib/site-packages/pyspark/jars/ivy-2.5.3.jar!/org/apache/ivy/core/settings/ivysettings.xml
+Ivy Default Cache set to: C:\Users\user\.ivy2\cache
+The jars for the packages stored in: C:\Users\user\.ivy2\jars
+io.delta#delta-spark_2.12 added as a dependency
+org.apache.hadoop#hadoop-aws added as a dependency
+com.amazonaws#aws-java-sdk-bundle added as a dependency
+:: resolving dependencies :: org.apache.spark#spark-submit-parent-f3b145f8-aa5a-449e-82d0-fb0c08be4692;1.0
+        confs: [default]
+        found io.delta#delta-spark_2.12;3.2.0 in central
+        found io.delta#delta-storage;3.2.0 in central
+        found org.antlr#antlr4-runtime;4.9.3 in central
+        found org.apache.hadoop#hadoop-aws;3.3.4 in central
+        found com.amazonaws#aws-java-sdk-bundle;1.12.262 in central
+        found org.wildfly.openssl#wildfly-openssl;1.0.7.Final in central
+:: resolution report :: resolve 167ms :: artifacts dl 16ms
+        :: modules in use:
+        com.amazonaws#aws-java-sdk-bundle;1.12.262 from central in [default]
+        io.delta#delta-spark_2.12;3.2.0 from central in [default]
+        io.delta#delta-storage;3.2.0 from central in [default]
+        org.antlr#antlr4-runtime;4.9.3 from central in [default]
+        org.apache.hadoop#hadoop-aws;3.3.4 from central in [default]
+        org.wildfly.openssl#wildfly-openssl;1.0.7.Final from central in [default]
+        ---------------------------------------------------------------------
+        |                  |            modules            ||   artifacts   |
+        |       conf       | number| search|dwnlded|evicted|| number|dwnlded|
+        ---------------------------------------------------------------------
+        |      default     |   6   |   0   |   0   |   0   ||   6   |   0   |
+        ---------------------------------------------------------------------
+:: retrieving :: org.apache.spark#spark-submit-parent-f3b145f8-aa5a-449e-82d0-fb0c08be4692
+        confs: [default]
+        0 artifacts copied, 6 already retrieved (0kB/18ms)
+Setting default log level to "WARN".
+To adjust logging level use sc.setLogLevel(newLevel). For SparkR, use setLogLevel(newLevel).
+
+
+         =================================
+         INFORME overwrite, append y merge
+         =================================
+
+ [+] Año procesado: 2024 | Total registros: 15410
+1. Salida tipo 'file' con save_mode overwrite (ubicación de salida: /data/demo/output/last) ...
+ [+] [OVERWRITE] Directorio 'C:\Users\user\Documents\PycharmProjects\prueba_sgd_group\src\prueba_sgd_group/resources/data/demo/output/last' existe. Ficheros parquet encontrados tras finalizar bucle: 1
+2. Salida tipo file con save_mode append y particionado (ubicació: /data/demo/output/historic)
+ [+] [APPEND] Directorio 'C:\Users\user\Documents\PycharmProjects\prueba_sgd_group\src\prueba_sgd_group/resources/data/demo/output/historic' particionado. Particiones encontradas: ['._SUCCESS.crc', 'load_date=2026-08-27', 'write_historic_file.csv', '_SUCCESS']
+3. Salida tipo table en DynamoDB (modo append)
+La tabla demo tiene 6524 elementos insertados en modo append.
+4. Salida tipo table en DynamoDB (modos merge)
+La tabla raw_demo tiene 7291 elementos insertados en modo merge.
+==================================================
+
+...
+...
+...
+
+```
+
 ## Diferencias entre el comportamiento entre los almacenamientos overwrite, append y merge
 
 Para ilustrar mejor este comportamiento, adicionalmente al test genérico he preparado un par de tests con una fracción de los
