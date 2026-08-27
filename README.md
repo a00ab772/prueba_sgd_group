@@ -1928,5 +1928,3 @@ $ act pull_request
 ```
 
 ![act](imagenes/act.png)
-
-
