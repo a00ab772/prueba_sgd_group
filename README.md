@@ -144,6 +144,22 @@ Para mi solución he hecho esta selección:
 
 ## Pre-requisitos
 
+º Python y opcionalmente, uv
+
+![variables de entorno](imagenes/variables_de_entorno.png)
+
+```shell
+user@DESKTOP-SCNMK3I MINGW64 ~/Documents/PycharmProjects/prueba_sgd_group
+Thu Aug 27 09:50:55
+$ python --version
+Python 3.14.6
+
+user@DESKTOP-SCNMK3I MINGW64 ~/Documents/PycharmProjects/prueba_sgd_group
+Thu Aug 27 10:33:58
+$ uv --version
+uv 0.12.0 (b88d7c5c4 2026-07-28 x86_64-pc-windows-msvc)
+```
+
 º JDK version 17 o superior. He elegido la 17 porque es la que tengo instalada en mi portátil:
 
 ```shell
