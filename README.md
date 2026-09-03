@@ -90,51 +90,49 @@ Para mi solución he hecho esta selección:
 * [uv](https://docs.astral.sh/uv/)
 * Cloud AWS y estos componentes:
   * [AWS EMR](https://docs.aws.amazon.com/es_es/emr/latest/ManagementGuide/emr-what-is-emr.html) para el cluster de Spark y Hadoop.
-    * [AWS DynamoDB](https://aws.amazon.com/es/dynamodb/) como base de datos de destino cuando out_type == "table",
-      ya que en DynamoDB un put_item funciona de manera nativa como un upsert, creando el elemento si no existe o
-      sobreescribiéndolo si la clave primaria coincide.
+  * [AWS DynamoDB](https://aws.amazon.com/es/dynamodb/) como base de datos de destino cuando out_type == "table",
+    ya que en DynamoDB un put_item funciona de manera nativa como un upsert, creando el elemento si no existe o
+    sobreescribiéndolo si la clave primaria coincide.
 
-      Para ilustrar mejor las diferencias entre append he pensado utilizar claves compuestas; de no hacerlo así o de un modo similar,
-      las fílas se sobreescribirían y no veríamos cómo crece el número de líneas cambios tras las distintas ejecuciones. Lo veremos
-      en detalle durante la sesión de test.
+    Para ilustrar mejor las diferencias entre append he pensado utilizar claves compuestas; de no hacerlo así o de un modo similar,
+    las fílas se sobreescribirían y no veríamos cómo crece el número de líneas cambios tras las distintas ejecuciones. Lo veremos
+    en detalle durante la sesión de test.
     
-      * para append en la tabla `demo`, utilizaremos una clave sort key compuesta con los campos municipio, sexo y load_date: 
+    * para append en la tabla `demo`, utilizaremos una clave sort key compuesta con los campos municipio, sexo y load_date: 
   
-        ```shell
-        dynamodb_client.create_table(
-            TableName="demo",
-            KeySchema=[
-                {"AttributeName": "provincia", "KeyType": "HASH"},
-                {"AttributeName": "municipio_sexo_date", "KeyType": "RANGE"}
-            ],
-            AttributeDefinitions=[
-                {"AttributeName": "provincia", "AttributeType": "S"},
-                {"AttributeName": "municipio_sexo_date", "AttributeType": "S"}
-            ],
-            BillingMode="PAY_PER_REQUEST"
-        )
-         ```
+      ```shell
+      dynamodb_client.create_table(
+          TableName="demo",
+          KeySchema=[
+              {"AttributeName": "provincia", "KeyType": "HASH"},
+              {"AttributeName": "municipio_sexo_date", "KeyType": "RANGE"}
+          ],
+          AttributeDefinitions=[
+              {"AttributeName": "provincia", "AttributeType": "S"},
+              {"AttributeName": "municipio_sexo_date", "AttributeType": "S"}
+          ],
+          BillingMode="PAY_PER_REQUEST"
+      )
+       ```
 
-        * para merge en la tabla `raw_demo`, utilizaremos una clave sort key compuesta con los campos municipio y sexo: 
+    * para merge en la tabla `raw_demo`, utilizaremos una clave sort key compuesta con los campos municipio y sexo: 
 
-        ```shell
-         dynamodb_client.create_table(
-            TableName="raw_demo",
-            KeySchema=[
-                {"AttributeName": "provincia", "KeyType": "HASH"},
-                {"AttributeName": "municipio_sexo", "KeyType": "RANGE"}
-            ],
-            AttributeDefinitions=[
-                {"AttributeName": "provincia", "AttributeType": "S"},
-                {"AttributeName": "municipio_sexo", "AttributeType": "S"}
-            ],
-            BillingMode="PAY_PER_REQUEST"
-        )   
-         ```
-  * [AWS S3](https://aws.amazon.com/es/s3/) como sistema de almacenamiento de archivos para guardar los CSV, el archivo 
-    metadata.json y los archivos resultantes de la transformación cuando out_type == "file".
-  * [AWS Secrets Manager](https://aws.amazon.com/es/secrets-manager) para almacenar y recuperar las credenciales de acceso
-    al cluster de EMR.
+      ```shell
+       dynamodb_client.create_table(
+          TableName="raw_demo",
+          KeySchema=[
+              {"AttributeName": "provincia", "KeyType": "HASH"},
+              {"AttributeName": "municipio_sexo", "KeyType": "RANGE"}
+          ],
+          AttributeDefinitions=[
+              {"AttributeName": "provincia", "AttributeType": "S"},
+              {"AttributeName": "municipio_sexo", "AttributeType": "S"}
+          ],
+          BillingMode="PAY_PER_REQUEST"
+      )   
+       ```
+  * [AWS S3](https://aws.amazon.com/es/s3/) como sistema de almacenamiento de archivos para guardar los CSV, el archivo metadata.json y los archivos resultantes de la transformación cuando out_type == "file".
+  * [AWS Secrets Manager](https://aws.amazon.com/es/secrets-manager) para almacenar y recuperar las credenciales de acceso al cluster de EMR.
   * [AWS Managed Workflows para Apache Airflow (MWAA)](https://aws.amazon.com/es/managed-workflows-for-apache-airflow/)
 
 
@@ -1245,9 +1243,6 @@ Ronda 2
 
 ```
 
-A partir de las salidas obtenidas en las dos rondas de ejecución con los mismos datos de entrada, las conclusiones sobre 
-cada tipo de almacenamiento se ilustran claramente con los siguientes datos reales:
-
 A partir de la ejecución completa en dos rondas proporcionada, las conclusiones clave sobre el comportamiento de cada estrategia de almacenamiento son las siguientes:
 
 1. **Salida tipo 'file' con save_mode overwrite (/data_reducido/demo/output/last)**
@@ -1542,7 +1537,7 @@ Tras el procesado de 2024 csv se han insertado estos elementos en modo append en
 
 
 
-A continuación seguimos con la segunda ronda, donde volvemos a procesar los mismos csv de entrada. Este es el resultado de reprocesar el csv de 2024; se observa un pequeño ruido en la fila de total_ambos_sexos, pero imagino que podemos ignorarlo:
+A continuación seguimos con la segunda ronda, donde volvemos a procesar los mismos csv de entrada. Este es el resultado de reprocesar el csv de 2024:
 
 ```shell
 Ronda 2
@@ -1553,10 +1548,13 @@ Ronda 2
 ...
 3. Salida tipo 'table' en DynamoDB (modo append):
 
-   La tabla 'demo' tiene 3 elementos insertados (modo append):
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '1.098'}, 'load_date': {'S': '2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '2.359'}, 'load_date': {'S': '2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '630.0'}, 'load_date': {'S': '2026-08-24'}}
+   La tabla 'demo' tiene 6 elementos insertados (modo append):
+     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '1098'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo_date': {'S': '03063 Dénia#Hombres#2026-09-03'}}
+     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '1011'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo_date': {'S': '03063 Dénia#Mujeres#2026-09-03'}}
+     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '2359'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo_date': {'S': '03065 Elx/Elche#Hombres#2026-09-03'}}
+     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '2346'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo_date': {'S': '03065 Elx/Elche#Mujeres#2026-09-03'}}
+     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '610'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo_date': {'S': '03066 Elda#Hombres#2026-09-03'}}
+     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '630'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo_date': {'S': '03066 Elda#Mujeres#2026-09-03'}}
 ```
 
 A continuación se procesa 2025 en segunda ronda, siendo este el resultado:
@@ -1571,11 +1569,13 @@ Ronda 2
 
 3. Salida tipo 'table' en DynamoDB (modo append):
 
-   La tabla 'demo' tiene 3 elementos insertados (modo append):
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '1.1'}, 'load_date': {'S': '2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '2.359'}, 'load_date': {'S': '2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '630.0'}, 'load_date': {'S': '2026-08-24'}}
-
+   La tabla 'demo' tiene 6 elementos insertados (modo append):
+     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '1100'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo_date': {'S': '03063 Dénia#Hombres#2026-09-03'}}
+     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '1020'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo_date': {'S': '03063 Dénia#Mujeres#2026-09-03'}}
+     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '2359'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo_date': {'S': '03065 Elx/Elche#Hombres#2026-09-03'}}
+     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '2346'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo_date': {'S': '03065 Elx/Elche#Mujeres#2026-09-03'}}
+     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '610'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo_date': {'S': '03066 Elda#Hombres#2026-09-03'}}
+     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '630'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo_date': {'S': '03066 Elda#Mujeres#2026-09-03'}}
 ```
 
 4. **Salida tipo 'table' en DynamoDB (Modo Merge)**
@@ -1583,7 +1583,7 @@ Ronda 2
 
 A continuación analizamos qué filas se van a ir insertando en la tabla `raw_demo` a lo largo de la ejecución de las dos rondas.
 
-tras procesar la primera ronda del archivo de entrada de 2024 vemos  que la tabla `raw_demo` contiene dos registros: 
+tras procesar la primera ronda del archivo de entrada de 2024 vemos  que la tabla `raw_demo` contiene cuatro registros: 
 
 ```shell
     ...
@@ -1606,13 +1606,15 @@ Ronda 1
 
 4. Salida tipo 'table' en DynamoDB (modo merge):
 
-   La tabla 'raw_demo' tiene 2 elementos insertados (modo merge):
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '1.098'}, 'load_date': {'S': '2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '2.359'}, 'load_date': {'S': '2026-08-24'}}
+   La tabla 'raw_demo' tiene 4 elementos insertados (modo merge):
+     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '1098'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo': {'S': '03063 Dénia#Hombres'}}
+     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '1011'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo': {'S': '03063 Dénia#Mujeres'}}
+     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '2359'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo': {'S': '03065 Elx/Elche#Hombres'}}
+     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '2346'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo': {'S': '03065 Elx/Elche#Mujeres'}}
 
 ```
 
-Continuando en la primera ronda, cuando se procesa el csv de 2025 vemos que la tabla tiene tres archivos insertados:
+Continuando en la primera ronda, cuando se procesa el csv de 2025 vemos que la tabla sigue teniendo seis archivos insertados:
 
 ```shell
 
@@ -1624,12 +1626,17 @@ Continuando en la primera ronda, cuando se procesa el csv de 2025 vemos que la t
 
 4. Salida tipo 'table' en DynamoDB (modo merge):
 
-   La tabla 'raw_demo' tiene 3 elementos insertados (modo merge):
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '1.1'}, 'load_date': {'S': '2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '2.359'}, 'load_date': {'S': '2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '630.0'}, 'load_date': {'S': '2026-08-24'}}
+   La tabla 'raw_demo' tiene 6 elementos insertados (modo merge):
+     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '1100'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo': {'S': '03063 Dénia#Hombres'}}
+     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '1020'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo': {'S': '03063 Dénia#Mujeres'}}
+     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '2359'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo': {'S': '03065 Elx/Elche#Hombres'}}
+     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '2346'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo': {'S': '03065 Elx/Elche#Mujeres'}}
+     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '610'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo': {'S': '03066 Elda#Hombres'}}
+     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '630'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo': {'S': '03066 Elda#Mujeres'}}
 
 ```
+
+La segunda ronda no varía el contenido de las tablas porque son los mismos valores, por lo que se mantienen las mismas claves y no se altera el conenido de las tablas.
 
 **Observaciones**
 
