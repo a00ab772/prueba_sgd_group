@@ -90,47 +90,6 @@ Para mi solución he hecho esta selección:
 * [uv](https://docs.astral.sh/uv/)
 * Cloud AWS y estos componentes:
   * [AWS EMR](https://docs.aws.amazon.com/es_es/emr/latest/ManagementGuide/emr-what-is-emr.html) para el cluster de Spark y Hadoop.
-  * [AWS DynamoDB](https://aws.amazon.com/es/dynamodb/) como base de datos de destino cuando out_type == "table",
-    ya que en DynamoDB un put_item funciona de manera nativa como un upsert, creando el elemento si no existe o
-    sobreescribiéndolo si la clave primaria coincide.
-
-    Para ilustrar mejor las diferencias entre append he pensado utilizar claves compuestas; de no hacerlo así o de un modo similar,
-    las fílas se sobreescribirían y no veríamos cómo crece el número de líneas cambios tras las distintas ejecuciones. Lo veremos
-    en detalle durante la sesión de test.
-    
-    * para append en la tabla `demo`, utilizaremos una clave sort key compuesta con los campos municipio, sexo y load_date: 
-  
-      ```shell
-      dynamodb_client.create_table(
-          TableName="demo",
-          KeySchema=[
-              {"AttributeName": "provincia", "KeyType": "HASH"},
-              {"AttributeName": "municipio_sexo_date", "KeyType": "RANGE"}
-          ],
-          AttributeDefinitions=[
-              {"AttributeName": "provincia", "AttributeType": "S"},
-              {"AttributeName": "municipio_sexo_date", "AttributeType": "S"}
-          ],
-          BillingMode="PAY_PER_REQUEST"
-      )
-       ```
-
-    * para merge en la tabla `raw_demo`, utilizaremos una clave sort key compuesta con los campos municipio y sexo: 
-
-      ```shell
-       dynamodb_client.create_table(
-          TableName="raw_demo",
-          KeySchema=[
-              {"AttributeName": "provincia", "KeyType": "HASH"},
-              {"AttributeName": "municipio_sexo", "KeyType": "RANGE"}
-          ],
-          AttributeDefinitions=[
-              {"AttributeName": "provincia", "AttributeType": "S"},
-              {"AttributeName": "municipio_sexo", "AttributeType": "S"}
-          ],
-          BillingMode="PAY_PER_REQUEST"
-      )   
-       ```
   * [AWS S3](https://aws.amazon.com/es/s3/) como sistema de almacenamiento de archivos para guardar los CSV, el archivo metadata.json y los archivos resultantes de la transformación cuando out_type == "file".
   * [AWS Secrets Manager](https://aws.amazon.com/es/secrets-manager) para almacenar y recuperar las credenciales de acceso al cluster de EMR.
   * [AWS Managed Workflows para Apache Airflow (MWAA)](https://aws.amazon.com/es/managed-workflows-for-apache-airflow/)
@@ -714,12 +673,24 @@ To adjust logging level use sc.setLogLevel(newLevel). For SparkR, use setLogLeve
 1. Salida tipo 'file' con save_mode overwrite (ubicación de salida: /data/demo/output/last) ...
  [+] [OVERWRITE] Directorio 'C:\Users\user\Documents\PycharmProjects\prueba_sgd_group\src\prueba_sgd_group/resources/data/demo/output/last' existe. Ficheros parquet encontrados tras finalizar bucle: 1
 2. Salida tipo file con save_mode append y particionado (ubicació: /data/demo/output/historic)
- [+] [APPEND] Directorio 'C:\Users\user\Documents\PycharmProjects\prueba_sgd_group\src\prueba_sgd_group/resources/data/demo/output/historic' particionado. Particiones encontradas: ['._SUCCESS.crc', 'load_date=2026-08-27', 'write_historic_file.csv', '_SUCCESS']
-3. Salida tipo table en DynamoDB (modo append)
-La tabla demo tiene 6524 elementos insertados en modo append.
-4. Salida tipo table en DynamoDB (modos merge)
-La tabla raw_demo tiene 7291 elementos insertados en modo merge.
+ [+] [APPEND] Directorio 'C:\Users\user\Documents\PycharmProjects\prueba_sgd_group\src\prueba_sgd_group/resources/data/demo/output/historic' particionado. Particiones encontradas: ['._SUCCESS.crc', 'load_date=2026-09-04', 'write_historic_file.csv', '_SUCCESS']
+3. Salida tipo table Delta (modo append)
+La tabla Delta 'demo' tiene 15410 elementos insertados en modo append.
+4. Salida tipo table Delta (modo merge)
+La tabla Delta 'raw_demo' tiene 15410 elementos insertados en modo merge.
 ==================================================
+
+ [+] Año procesado: 2025 | Total registros: 15410
+1. Salida tipo 'file' con save_mode overwrite (ubicación de salida: /data/demo/output/last) ...
+ [+] [OVERWRITE] Directorio 'C:\Users\user\Documents\PycharmProjects\prueba_sgd_group\src\prueba_sgd_group/resources/data/demo/output/last' existe. Ficheros parquet encontrados tras finalizar bucle: 1
+2. Salida tipo file con save_mode append y particionado (ubicació: /data/demo/output/historic)
+ [+] [APPEND] Directorio 'C:\Users\user\Documents\PycharmProjects\prueba_sgd_group\src\prueba_sgd_group/resources/data/demo/output/historic' particionado. Particiones encontradas: ['._SUCCESS.crc', 'load_date=2026-09-04', 'write_historic_file.csv', '_SUCCESS']
+3. Salida tipo table Delta (modo append)
+La tabla Delta 'demo' tiene 15410 elementos insertados en modo append.
+4. Salida tipo table Delta (modo merge)
+La tabla Delta 'raw_demo' tiene 30820 elementos insertados en modo merge.
+==================================================
+
 
 ...
 ...
@@ -763,10 +734,10 @@ Este es el test en cuestión:
 INFORME OVERWRITE, APPEND Y MERGE CON CSV CON 1 REGISTRO
 ====================================================================================================
 
-        
+
         A continuación vamos a leer los archivos csv de entrada de 2024 y 2025 en dos rondas, mostrando en cada una de ellas las
         salidas overwrite, append y merge que hemos obtenido.
-        
+
 
 Ronda 1
 
@@ -776,20 +747,20 @@ Ronda 1
 
     Contenido del archivo C:\Users\user\Documents\PycharmProjects\prueba_sgd_group\src\prueba_sgd_group/resources/data_1_registro/demo/input/archivo_1_registro_2024.csv (3 registros):
 
-    provincia          | municipio   | sexo        | total
+    ﻿provincia          | municipio   | sexo        | total
     --------------------+-------------+-------------+------
-    03 Alicante/Alacant | 03063 Dénia | Ambos sexos | 5    
-    03 Alicante/Alacant | 03063 Dénia | Hombres     | 2    
-    03 Alicante/Alacant | 03063 Dénia | Mujeres     | 3    
+    03 Alicante/Alacant | 03063 Dénia | Ambos sexos | 5
+    03 Alicante/Alacant | 03063 Dénia | Hombres     | 2
+    03 Alicante/Alacant | 03063 Dénia | Mujeres     | 3
 ----------------------------------------------------------------------------------------------------
-                                                                                
+
 1. Salida tipo 'file' con save_mode overwrite (/data_1_registro/demo/output/last):
 
    Contenido actual de las filas en el Parquet (2 registros):
-    provincia           | municipio   | sexo    | total_ambos_sexos | load_date 
+    provincia           | municipio   | sexo    | total_ambos_sexos | load_date
     --------------------+-------------+---------+-------------------+-----------
-    03 Alicante/Alacant | 03063 Dénia | Mujeres | 3                 | 2026-08-24
-    03 Alicante/Alacant | 03063 Dénia | Hombres | 2                 | 2026-08-24
+    03 Alicante/Alacant | 03063 Dénia | Hombres | 2                 | 2026-09-04
+    03 Alicante/Alacant | 03063 Dénia | Mujeres | 3                 | 2026-09-04
 
 2. Salida tipo 'file' con save_mode append (/data_1_registro/demo/output/historic):
 
@@ -797,21 +768,31 @@ Ronda 1
 
     provincia           | municipio   | sexo    | total_ambos_sexos
     --------------------+-------------+---------+------------------
-    03 Alicante/Alacant | 03063 Dénia | Mujeres | 3                
-    03 Alicante/Alacant | 03063 Dénia | Hombres | 2                
+    03 Alicante/Alacant | 03063 Dénia | Hombres | 2
+    03 Alicante/Alacant | 03063 Dénia | Mujeres | 3
 ----------------------------------------------------------------------------------------------------
 
-3. Salida tipo 'table' en DynamoDB (modo append):
+3. Salida tipo 'table' Delta (modo append):
 
-   La tabla 'demo' tiene 2 elementos insertados (modo append):
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '2'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03063 Dénia#Hombres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '3'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03063 Dénia#Mujeres#2026-08-24'}}
+   La tabla Delta 'demo' tiene 2 registros (modo append):
++-------------------+-----------+-------+-----------------+----------+
+|provincia          |municipio  |sexo   |total_ambos_sexos|load_date |
++-------------------+-----------+-------+-----------------+----------+
+|03 Alicante/Alacant|03063 Dénia|Hombres|2                |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia|Mujeres|3                |2026-09-04|
++-------------------+-----------+-------+-----------------+----------+
 
-4. Salida tipo 'table' en DynamoDB (modo merge):
 
-   La tabla 'raw_demo' tiene 2 elementos insertados (modo merge):
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '2'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03063 Dénia#Hombres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '3'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03063 Dénia#Mujeres'}}
+4. Salida tipo 'table' Delta (modo merge):
+
+   La tabla Delta 'raw_demo' tiene 2 registros (modo merge):
++-------------------+-----------+-------+-----------------+----------+
+|provincia          |municipio  |sexo   |total_ambos_sexos|load_date |
++-------------------+-----------+-------+-----------------+----------+
+|03 Alicante/Alacant|03063 Dénia|Hombres|2                |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia|Mujeres|3                |2026-09-04|
++-------------------+-----------+-------+-----------------+----------+
+
 
 ====================================================================================================
 ----------------------------------------------------------------------------------------------------
@@ -820,20 +801,20 @@ Ronda 1
 
     Contenido del archivo C:\Users\user\Documents\PycharmProjects\prueba_sgd_group\src\prueba_sgd_group/resources/data_1_registro/demo/input/archivo_1_registro_2025.csv (3 registros):
 
-    provincia          | municipio   | sexo        | total
+    ﻿provincia          | municipio   | sexo        | total
     --------------------+-------------+-------------+------
-    03 Alicante/Alacant | 03063 Dénia | Ambos sexos | 10   
-    03 Alicante/Alacant | 03063 Dénia | Hombres     | 7    
-    03 Alicante/Alacant | 03063 Dénia | Mujeres     | 3    
+    03 Alicante/Alacant | 03063 Dénia | Ambos sexos | 10
+    03 Alicante/Alacant | 03063 Dénia | Hombres     | 7
+    03 Alicante/Alacant | 03063 Dénia | Mujeres     | 3
 ----------------------------------------------------------------------------------------------------
 
 1. Salida tipo 'file' con save_mode overwrite (/data_1_registro/demo/output/last):
 
    Contenido actual de las filas en el Parquet (2 registros):
-    provincia           | municipio   | sexo    | total_ambos_sexos | load_date 
+    provincia           | municipio   | sexo    | total_ambos_sexos | load_date
     --------------------+-------------+---------+-------------------+-----------
-    03 Alicante/Alacant | 03063 Dénia | Mujeres | 3                 | 2026-08-24
-    03 Alicante/Alacant | 03063 Dénia | Hombres | 7                 | 2026-08-24
+    03 Alicante/Alacant | 03063 Dénia | Hombres | 7                 | 2026-09-04
+    03 Alicante/Alacant | 03063 Dénia | Mujeres | 3                 | 2026-09-04
 
 2. Salida tipo 'file' con save_mode append (/data_1_registro/demo/output/historic):
 
@@ -841,23 +822,35 @@ Ronda 1
 
     provincia           | municipio   | sexo    | total_ambos_sexos
     --------------------+-------------+---------+------------------
-    03 Alicante/Alacant | 03063 Dénia | Mujeres | 3                
-    03 Alicante/Alacant | 03063 Dénia | Hombres | 2                
-    03 Alicante/Alacant | 03063 Dénia | Mujeres | 3                
-    03 Alicante/Alacant | 03063 Dénia | Hombres | 7                
+    03 Alicante/Alacant | 03063 Dénia | Hombres | 2
+    03 Alicante/Alacant | 03063 Dénia | Mujeres | 3
+    03 Alicante/Alacant | 03063 Dénia | Hombres | 7
+    03 Alicante/Alacant | 03063 Dénia | Mujeres | 3
 ----------------------------------------------------------------------------------------------------
 
-3. Salida tipo 'table' en DynamoDB (modo append):
+3. Salida tipo 'table' Delta (modo append):
 
-   La tabla 'demo' tiene 2 elementos insertados (modo append):
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '7'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03063 Dénia#Hombres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '3'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03063 Dénia#Mujeres#2026-08-24'}}
+   La tabla Delta 'demo' tiene 2 registros (modo append):
++-------------------+-----------+-------+-----------------+----------+
+|provincia          |municipio  |sexo   |total_ambos_sexos|load_date |
++-------------------+-----------+-------+-----------------+----------+
+|03 Alicante/Alacant|03063 Dénia|Hombres|7                |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia|Mujeres|3                |2026-09-04|
++-------------------+-----------+-------+-----------------+----------+
 
-4. Salida tipo 'table' en DynamoDB (modo merge):
 
-   La tabla 'raw_demo' tiene 2 elementos insertados (modo merge):
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '7'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03063 Dénia#Hombres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '3'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03063 Dénia#Mujeres'}}
+4. Salida tipo 'table' Delta (modo merge):
+
+   La tabla Delta 'raw_demo' tiene 4 registros (modo merge):
++-------------------+-----------+-------+-----------------+----------+
+|provincia          |municipio  |sexo   |total_ambos_sexos|load_date |
++-------------------+-----------+-------+-----------------+----------+
+|03 Alicante/Alacant|03063 Dénia|Hombres|7                |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia|Mujeres|3                |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia|Hombres|2                |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia|Mujeres|3                |2026-09-04|
++-------------------+-----------+-------+-----------------+----------+
+
 
 ====================================================================================================
 
@@ -869,20 +862,20 @@ Ronda 2
 
     Contenido del archivo C:\Users\user\Documents\PycharmProjects\prueba_sgd_group\src\prueba_sgd_group/resources/data_1_registro/demo/input/archivo_1_registro_2024.csv (3 registros):
 
-    provincia          | municipio   | sexo        | total
+    ﻿provincia          | municipio   | sexo        | total
     --------------------+-------------+-------------+------
-    03 Alicante/Alacant | 03063 Dénia | Ambos sexos | 5    
-    03 Alicante/Alacant | 03063 Dénia | Hombres     | 2    
-    03 Alicante/Alacant | 03063 Dénia | Mujeres     | 3    
+    03 Alicante/Alacant | 03063 Dénia | Ambos sexos | 5
+    03 Alicante/Alacant | 03063 Dénia | Hombres     | 2
+    03 Alicante/Alacant | 03063 Dénia | Mujeres     | 3
 ----------------------------------------------------------------------------------------------------
 
 1. Salida tipo 'file' con save_mode overwrite (/data_1_registro/demo/output/last):
 
    Contenido actual de las filas en el Parquet (2 registros):
-    provincia           | municipio   | sexo    | total_ambos_sexos | load_date 
+    provincia           | municipio   | sexo    | total_ambos_sexos | load_date
     --------------------+-------------+---------+-------------------+-----------
-    03 Alicante/Alacant | 03063 Dénia | Mujeres | 3                 | 2026-08-24
-    03 Alicante/Alacant | 03063 Dénia | Hombres | 2                 | 2026-08-24
+    03 Alicante/Alacant | 03063 Dénia | Hombres | 2                 | 2026-09-04
+    03 Alicante/Alacant | 03063 Dénia | Mujeres | 3                 | 2026-09-04
 
 2. Salida tipo 'file' con save_mode append (/data_1_registro/demo/output/historic):
 
@@ -890,25 +883,39 @@ Ronda 2
 
     provincia           | municipio   | sexo    | total_ambos_sexos
     --------------------+-------------+---------+------------------
-    03 Alicante/Alacant | 03063 Dénia | Mujeres | 3                
-    03 Alicante/Alacant | 03063 Dénia | Hombres | 2                
-    03 Alicante/Alacant | 03063 Dénia | Mujeres | 3                
-    03 Alicante/Alacant | 03063 Dénia | Hombres | 7                
-    03 Alicante/Alacant | 03063 Dénia | Mujeres | 3                
-    03 Alicante/Alacant | 03063 Dénia | Hombres | 2                
+    03 Alicante/Alacant | 03063 Dénia | Hombres | 2
+    03 Alicante/Alacant | 03063 Dénia | Mujeres | 3
+    03 Alicante/Alacant | 03063 Dénia | Hombres | 7
+    03 Alicante/Alacant | 03063 Dénia | Mujeres | 3
+    03 Alicante/Alacant | 03063 Dénia | Hombres | 2
+    03 Alicante/Alacant | 03063 Dénia | Mujeres | 3
 ----------------------------------------------------------------------------------------------------
 
-3. Salida tipo 'table' en DynamoDB (modo append):
+3. Salida tipo 'table' Delta (modo append):
 
-   La tabla 'demo' tiene 2 elementos insertados (modo append):
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '2'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03063 Dénia#Hombres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '3'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03063 Dénia#Mujeres#2026-08-24'}}
+   La tabla Delta 'demo' tiene 2 registros (modo append):
++-------------------+-----------+-------+-----------------+----------+
+|provincia          |municipio  |sexo   |total_ambos_sexos|load_date |
++-------------------+-----------+-------+-----------------+----------+
+|03 Alicante/Alacant|03063 Dénia|Hombres|2                |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia|Mujeres|3                |2026-09-04|
++-------------------+-----------+-------+-----------------+----------+
 
-4. Salida tipo 'table' en DynamoDB (modo merge):
 
-   La tabla 'raw_demo' tiene 2 elementos insertados (modo merge):
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '2'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03063 Dénia#Hombres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '3'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03063 Dénia#Mujeres'}}
+4. Salida tipo 'table' Delta (modo merge):
+
+   La tabla Delta 'raw_demo' tiene 6 registros (modo merge):
++-------------------+-----------+-------+-----------------+----------+
+|provincia          |municipio  |sexo   |total_ambos_sexos|load_date |
++-------------------+-----------+-------+-----------------+----------+
+|03 Alicante/Alacant|03063 Dénia|Hombres|7                |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia|Mujeres|3                |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia|Hombres|2                |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia|Mujeres|3                |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia|Hombres|2                |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia|Mujeres|3                |2026-09-04|
++-------------------+-----------+-------+-----------------+----------+
+
 
 ====================================================================================================
 ----------------------------------------------------------------------------------------------------
@@ -917,20 +924,20 @@ Ronda 2
 
     Contenido del archivo C:\Users\user\Documents\PycharmProjects\prueba_sgd_group\src\prueba_sgd_group/resources/data_1_registro/demo/input/archivo_1_registro_2025.csv (3 registros):
 
-    provincia          | municipio   | sexo        | total
+    ﻿provincia          | municipio   | sexo        | total
     --------------------+-------------+-------------+------
-    03 Alicante/Alacant | 03063 Dénia | Ambos sexos | 10   
-    03 Alicante/Alacant | 03063 Dénia | Hombres     | 7    
-    03 Alicante/Alacant | 03063 Dénia | Mujeres     | 3    
+    03 Alicante/Alacant | 03063 Dénia | Ambos sexos | 10
+    03 Alicante/Alacant | 03063 Dénia | Hombres     | 7
+    03 Alicante/Alacant | 03063 Dénia | Mujeres     | 3
 ----------------------------------------------------------------------------------------------------
 
 1. Salida tipo 'file' con save_mode overwrite (/data_1_registro/demo/output/last):
 
    Contenido actual de las filas en el Parquet (2 registros):
-    provincia           | municipio   | sexo    | total_ambos_sexos | load_date 
+    provincia           | municipio   | sexo    | total_ambos_sexos | load_date
     --------------------+-------------+---------+-------------------+-----------
-    03 Alicante/Alacant | 03063 Dénia | Mujeres | 3                 | 2026-08-24
-    03 Alicante/Alacant | 03063 Dénia | Hombres | 7                 | 2026-08-24
+    03 Alicante/Alacant | 03063 Dénia | Hombres | 7                 | 2026-09-04
+    03 Alicante/Alacant | 03063 Dénia | Mujeres | 3                 | 2026-09-04
 
 2. Salida tipo 'file' con save_mode append (/data_1_registro/demo/output/historic):
 
@@ -938,29 +945,43 @@ Ronda 2
 
     provincia           | municipio   | sexo    | total_ambos_sexos
     --------------------+-------------+---------+------------------
-    03 Alicante/Alacant | 03063 Dénia | Mujeres | 3                
-    03 Alicante/Alacant | 03063 Dénia | Hombres | 2                
-    03 Alicante/Alacant | 03063 Dénia | Mujeres | 3                
-    03 Alicante/Alacant | 03063 Dénia | Hombres | 7                
-    03 Alicante/Alacant | 03063 Dénia | Mujeres | 3                
-    03 Alicante/Alacant | 03063 Dénia | Hombres | 7                
-    03 Alicante/Alacant | 03063 Dénia | Mujeres | 3                
-    03 Alicante/Alacant | 03063 Dénia | Hombres | 2                
+    03 Alicante/Alacant | 03063 Dénia | Hombres | 2
+    03 Alicante/Alacant | 03063 Dénia | Mujeres | 3
+    03 Alicante/Alacant | 03063 Dénia | Hombres | 7
+    03 Alicante/Alacant | 03063 Dénia | Mujeres | 3
+    03 Alicante/Alacant | 03063 Dénia | Hombres | 2
+    03 Alicante/Alacant | 03063 Dénia | Mujeres | 3
+    03 Alicante/Alacant | 03063 Dénia | Hombres | 7
+    03 Alicante/Alacant | 03063 Dénia | Mujeres | 3
 ----------------------------------------------------------------------------------------------------
 
-3. Salida tipo 'table' en DynamoDB (modo append):
+3. Salida tipo 'table' Delta (modo append):
 
-   La tabla 'demo' tiene 2 elementos insertados (modo append):
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '7'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03063 Dénia#Hombres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '3'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03063 Dénia#Mujeres#2026-08-24'}}
+   La tabla Delta 'demo' tiene 2 registros (modo append):
++-------------------+-----------+-------+-----------------+----------+
+|provincia          |municipio  |sexo   |total_ambos_sexos|load_date |
++-------------------+-----------+-------+-----------------+----------+
+|03 Alicante/Alacant|03063 Dénia|Hombres|7                |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia|Mujeres|3                |2026-09-04|
++-------------------+-----------+-------+-----------------+----------+
 
-4. Salida tipo 'table' en DynamoDB (modo merge):
 
-   La tabla 'raw_demo' tiene 2 elementos insertados (modo merge):
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '7'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03063 Dénia#Hombres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '3'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03063 Dénia#Mujeres'}}
+4. Salida tipo 'table' Delta (modo merge):
 
-====================================================================================================
+   La tabla Delta 'raw_demo' tiene 8 registros (modo merge):
++-------------------+-----------+-------+-----------------+----------+
+|provincia          |municipio  |sexo   |total_ambos_sexos|load_date |
++-------------------+-----------+-------+-----------------+----------+
+|03 Alicante/Alacant|03063 Dénia|Hombres|7                |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia|Mujeres|3                |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia|Hombres|7                |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia|Mujeres|3                |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia|Hombres|2                |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia|Mujeres|3                |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia|Hombres|2                |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia|Mujeres|3                |2026-09-04|
++-------------------+-----------+-------+-----------------+----------+
+
 ```
 
 ![Test reducido overwrite, append y merge](imagenes/test_reducido_overwrite_append_merge.png)
@@ -975,7 +996,7 @@ INFORME OVERWRITE, APPEND Y MERGE CON CSV REDUCIDOS
 
         A continuación vamos a leer los archivos csv de entrada de 2024 y 2025 en dos rondas, mostrando en cada una de ellas las
         salidas overwrite, append y merge que hemos obtenido.
-        
+
 
 Ronda 1
 
@@ -985,7 +1006,7 @@ Ronda 1
 
     Contenido del archivo C:\Users\user\Documents\PycharmProjects\prueba_sgd_group\src\prueba_sgd_group/resources/data_reducido/demo/input/archivo_reducido_2024.csv (7 registros):
 
-    provincia          | municipio       | sexo        | total
+    ﻿provincia          | municipio       | sexo        | total
     --------------------+-----------------+-------------+------
     03 Alicante/Alacant | 03063 Dénia     | Ambos sexos | 2.109
     03 Alicante/Alacant | 03063 Dénia     | Hombres     | 1.098
@@ -999,12 +1020,12 @@ Ronda 1
 1. Salida tipo 'file' con save_mode overwrite (/data_reducido/demo/output/last):
 
    Contenido actual de las filas en el Parquet (4 registros):
-    provincia           | municipio       | sexo    | total_ambos_sexos | load_date 
+    provincia           | municipio       | sexo    | total_ambos_sexos | load_date
     --------------------+-----------------+---------+-------------------+-----------
-    03 Alicante/Alacant | 03063 Dénia     | Mujeres | 1011              | 2026-08-24
-    03 Alicante/Alacant | 03065 Elx/Elche | Hombres | 2359              | 2026-08-24
-    03 Alicante/Alacant | 03063 Dénia     | Hombres | 1098              | 2026-08-24
-    03 Alicante/Alacant | 03065 Elx/Elche | Mujeres | 2346              | 2026-08-24
+    03 Alicante/Alacant | 03065 Elx/Elche | Mujeres | 2346              | 2026-09-04
+    03 Alicante/Alacant | 03065 Elx/Elche | Hombres | 2359              | 2026-09-04
+    03 Alicante/Alacant | 03063 Dénia     | Hombres | 1098              | 2026-09-04
+    03 Alicante/Alacant | 03063 Dénia     | Mujeres | 1011              | 2026-09-04
 
 2. Salida tipo 'file' con save_mode append (/data_reducido/demo/output/historic):
 
@@ -1012,27 +1033,37 @@ Ronda 1
 
     provincia           | municipio       | sexo    | total_ambos_sexos
     --------------------+-----------------+---------+------------------
-    03 Alicante/Alacant | 03063 Dénia     | Mujeres | 1011             
-    03 Alicante/Alacant | 03065 Elx/Elche | Hombres | 2359             
-    03 Alicante/Alacant | 03063 Dénia     | Hombres | 1098             
-    03 Alicante/Alacant | 03065 Elx/Elche | Mujeres | 2346             
+    03 Alicante/Alacant | 03065 Elx/Elche | Mujeres | 2346
+    03 Alicante/Alacant | 03065 Elx/Elche | Hombres | 2359
+    03 Alicante/Alacant | 03063 Dénia     | Hombres | 1098
+    03 Alicante/Alacant | 03063 Dénia     | Mujeres | 1011
 ----------------------------------------------------------------------------------------------------
 
-3. Salida tipo 'table' en DynamoDB (modo append):
+3. Salida tipo 'table' Delta (modo append):
 
-   La tabla 'demo' tiene 4 elementos insertados (modo append):
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '1098'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03063 Dénia#Hombres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '1011'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03063 Dénia#Mujeres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '2359'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03065 Elx/Elche#Hombres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '2346'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03065 Elx/Elche#Mujeres#2026-08-24'}}
+   La tabla Delta 'demo' tiene 4 registros (modo append):
++-------------------+---------------+-------+-----------------+----------+
+|provincia          |municipio      |sexo   |total_ambos_sexos|load_date |
++-------------------+---------------+-------+-----------------+----------+
+|03 Alicante/Alacant|03065 Elx/Elche|Mujeres|2346             |2026-09-04|
+|03 Alicante/Alacant|03065 Elx/Elche|Hombres|2359             |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia    |Hombres|1098             |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia    |Mujeres|1011             |2026-09-04|
++-------------------+---------------+-------+-----------------+----------+
 
-4. Salida tipo 'table' en DynamoDB (modo merge):
 
-   La tabla 'raw_demo' tiene 4 elementos insertados (modo merge):
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '1098'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03063 Dénia#Hombres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '1011'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03063 Dénia#Mujeres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '2359'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03065 Elx/Elche#Hombres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '2346'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03065 Elx/Elche#Mujeres'}}
+4. Salida tipo 'table' Delta (modo merge):
+
+   La tabla Delta 'raw_demo' tiene 4 registros (modo merge):
++-------------------+---------------+-------+-----------------+----------+
+|provincia          |municipio      |sexo   |total_ambos_sexos|load_date |
++-------------------+---------------+-------+-----------------+----------+
+|03 Alicante/Alacant|03065 Elx/Elche|Mujeres|2346             |2026-09-04|
+|03 Alicante/Alacant|03065 Elx/Elche|Hombres|2359             |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia    |Hombres|1098             |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia    |Mujeres|1011             |2026-09-04|
++-------------------+---------------+-------+-----------------+----------+
+
 
 ====================================================================================================
 ----------------------------------------------------------------------------------------------------
@@ -1041,25 +1072,25 @@ Ronda 1
 
     Contenido del archivo C:\Users\user\Documents\PycharmProjects\prueba_sgd_group\src\prueba_sgd_group/resources/data_reducido/demo/input/archivo_reducido_2025.csv (6 registros):
 
-    provincia          | municipio   | sexo        | total
+    ﻿provincia          | municipio   | sexo        | total
     --------------------+-------------+-------------+------
     03 Alicante/Alacant | 03063 Dénia | Ambos sexos | 2.120
     03 Alicante/Alacant | 03063 Dénia | Hombres     | 1.100
     03 Alicante/Alacant | 03063 Dénia | Mujeres     | 1.020
     03 Alicante/Alacant | 03066 Elda  | Ambos sexos | 1.240
-    03 Alicante/Alacant | 03066 Elda  | Hombres     | 610  
-    03 Alicante/Alacant | 03066 Elda  | Mujeres     | 630  
+    03 Alicante/Alacant | 03066 Elda  | Hombres     | 610
+    03 Alicante/Alacant | 03066 Elda  | Mujeres     | 630
 ----------------------------------------------------------------------------------------------------
 
 1. Salida tipo 'file' con save_mode overwrite (/data_reducido/demo/output/last):
 
    Contenido actual de las filas en el Parquet (4 registros):
-    provincia           | municipio   | sexo    | total_ambos_sexos | load_date 
+    provincia           | municipio   | sexo    | total_ambos_sexos | load_date
     --------------------+-------------+---------+-------------------+-----------
-    03 Alicante/Alacant | 03066 Elda  | Mujeres | 630               | 2026-08-24
-    03 Alicante/Alacant | 03063 Dénia | Mujeres | 1020              | 2026-08-24
-    03 Alicante/Alacant | 03066 Elda  | Hombres | 610               | 2026-08-24
-    03 Alicante/Alacant | 03063 Dénia | Hombres | 1100              | 2026-08-24
+    03 Alicante/Alacant | 03066 Elda  | Mujeres | 630               | 2026-09-04
+    03 Alicante/Alacant | 03066 Elda  | Hombres | 610               | 2026-09-04
+    03 Alicante/Alacant | 03063 Dénia | Hombres | 1100              | 2026-09-04
+    03 Alicante/Alacant | 03063 Dénia | Mujeres | 1020              | 2026-09-04
 
 2. Salida tipo 'file' con save_mode append (/data_reducido/demo/output/historic):
 
@@ -1067,35 +1098,47 @@ Ronda 1
 
     provincia           | municipio       | sexo    | total_ambos_sexos
     --------------------+-----------------+---------+------------------
-    03 Alicante/Alacant | 03066 Elda      | Mujeres | 630              
-    03 Alicante/Alacant | 03063 Dénia     | Mujeres | 1020             
-    03 Alicante/Alacant | 03066 Elda      | Hombres | 610              
-    03 Alicante/Alacant | 03063 Dénia     | Hombres | 1100             
-    03 Alicante/Alacant | 03063 Dénia     | Mujeres | 1011             
-    03 Alicante/Alacant | 03065 Elx/Elche | Hombres | 2359             
-    03 Alicante/Alacant | 03063 Dénia     | Hombres | 1098             
-    03 Alicante/Alacant | 03065 Elx/Elche | Mujeres | 2346             
+    03 Alicante/Alacant | 03065 Elx/Elche | Mujeres | 2346
+    03 Alicante/Alacant | 03065 Elx/Elche | Hombres | 2359
+    03 Alicante/Alacant | 03063 Dénia     | Hombres | 1098
+    03 Alicante/Alacant | 03063 Dénia     | Mujeres | 1011
+    03 Alicante/Alacant | 03066 Elda      | Mujeres | 630
+    03 Alicante/Alacant | 03066 Elda      | Hombres | 610
+    03 Alicante/Alacant | 03063 Dénia     | Hombres | 1100
+    03 Alicante/Alacant | 03063 Dénia     | Mujeres | 1020
 ----------------------------------------------------------------------------------------------------
 
-3. Salida tipo 'table' en DynamoDB (modo append):
+3. Salida tipo 'table' Delta (modo append):
 
-   La tabla 'demo' tiene 6 elementos insertados (modo append):
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '1100'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03063 Dénia#Hombres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '1020'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03063 Dénia#Mujeres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '2359'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03065 Elx/Elche#Hombres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '2346'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03065 Elx/Elche#Mujeres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '610'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03066 Elda#Hombres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '630'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03066 Elda#Mujeres#2026-08-24'}}
+   La tabla Delta 'demo' tiene 6 registros (modo append):
++-------------------+---------------+-------+-----------------+----------+
+|provincia          |municipio      |sexo   |total_ambos_sexos|load_date |
++-------------------+---------------+-------+-----------------+----------+
+|03 Alicante/Alacant|03063 Dénia    |Hombres|1100             |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia    |Mujeres|1020             |2026-09-04|
+|03 Alicante/Alacant|03065 Elx/Elche|Hombres|2359             |2026-09-04|
+|03 Alicante/Alacant|03065 Elx/Elche|Mujeres|2346             |2026-09-04|
+|03 Alicante/Alacant|03066 Elda     |Hombres|610              |2026-09-04|
+|03 Alicante/Alacant|03066 Elda     |Mujeres|630              |2026-09-04|
++-------------------+---------------+-------+-----------------+----------+
 
-4. Salida tipo 'table' en DynamoDB (modo merge):
 
-   La tabla 'raw_demo' tiene 6 elementos insertados (modo merge):
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '1100'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03063 Dénia#Hombres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '1020'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03063 Dénia#Mujeres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '2359'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03065 Elx/Elche#Hombres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '2346'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03065 Elx/Elche#Mujeres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '610'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03066 Elda#Hombres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '630'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03066 Elda#Mujeres'}}
+4. Salida tipo 'table' Delta (modo merge):
+
+   La tabla Delta 'raw_demo' tiene 8 registros (modo merge):
++-------------------+---------------+-------+-----------------+----------+
+|provincia          |municipio      |sexo   |total_ambos_sexos|load_date |
++-------------------+---------------+-------+-----------------+----------+
+|03 Alicante/Alacant|03065 Elx/Elche|Mujeres|2346             |2026-09-04|
+|03 Alicante/Alacant|03065 Elx/Elche|Hombres|2359             |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia    |Hombres|1098             |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia    |Mujeres|1011             |2026-09-04|
+|03 Alicante/Alacant|03066 Elda     |Mujeres|630              |2026-09-04|
+|03 Alicante/Alacant|03066 Elda     |Hombres|610              |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia    |Hombres|1100             |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia    |Mujeres|1020             |2026-09-04|
++-------------------+---------------+-------+-----------------+----------+
+
 
 ====================================================================================================
 
@@ -1107,7 +1150,7 @@ Ronda 2
 
     Contenido del archivo C:\Users\user\Documents\PycharmProjects\prueba_sgd_group\src\prueba_sgd_group/resources/data_reducido/demo/input/archivo_reducido_2024.csv (7 registros):
 
-    provincia          | municipio       | sexo        | total
+    ﻿provincia          | municipio       | sexo        | total
     --------------------+-----------------+-------------+------
     03 Alicante/Alacant | 03063 Dénia     | Ambos sexos | 2.109
     03 Alicante/Alacant | 03063 Dénia     | Hombres     | 1.098
@@ -1121,12 +1164,12 @@ Ronda 2
 1. Salida tipo 'file' con save_mode overwrite (/data_reducido/demo/output/last):
 
    Contenido actual de las filas en el Parquet (4 registros):
-    provincia           | municipio       | sexo    | total_ambos_sexos | load_date 
+    provincia           | municipio       | sexo    | total_ambos_sexos | load_date
     --------------------+-----------------+---------+-------------------+-----------
-    03 Alicante/Alacant | 03063 Dénia     | Mujeres | 1011              | 2026-08-24
-    03 Alicante/Alacant | 03065 Elx/Elche | Hombres | 2359              | 2026-08-24
-    03 Alicante/Alacant | 03063 Dénia     | Hombres | 1098              | 2026-08-24
-    03 Alicante/Alacant | 03065 Elx/Elche | Mujeres | 2346              | 2026-08-24
+    03 Alicante/Alacant | 03065 Elx/Elche | Mujeres | 2346              | 2026-09-04
+    03 Alicante/Alacant | 03065 Elx/Elche | Hombres | 2359              | 2026-09-04
+    03 Alicante/Alacant | 03063 Dénia     | Hombres | 1098              | 2026-09-04
+    03 Alicante/Alacant | 03063 Dénia     | Mujeres | 1011              | 2026-09-04
 
 2. Salida tipo 'file' con save_mode append (/data_reducido/demo/output/historic):
 
@@ -1134,39 +1177,55 @@ Ronda 2
 
     provincia           | municipio       | sexo    | total_ambos_sexos
     --------------------+-----------------+---------+------------------
-    03 Alicante/Alacant | 03066 Elda      | Mujeres | 630              
-    03 Alicante/Alacant | 03063 Dénia     | Mujeres | 1020             
-    03 Alicante/Alacant | 03066 Elda      | Hombres | 610              
-    03 Alicante/Alacant | 03063 Dénia     | Hombres | 1100             
-    03 Alicante/Alacant | 03063 Dénia     | Mujeres | 1011             
-    03 Alicante/Alacant | 03065 Elx/Elche | Hombres | 2359             
-    03 Alicante/Alacant | 03063 Dénia     | Hombres | 1098             
-    03 Alicante/Alacant | 03065 Elx/Elche | Mujeres | 2346             
-    03 Alicante/Alacant | 03063 Dénia     | Mujeres | 1011             
-    03 Alicante/Alacant | 03065 Elx/Elche | Hombres | 2359             
-    03 Alicante/Alacant | 03063 Dénia     | Hombres | 1098             
-    03 Alicante/Alacant | 03065 Elx/Elche | Mujeres | 2346             
+    03 Alicante/Alacant | 03065 Elx/Elche | Mujeres | 2346
+    03 Alicante/Alacant | 03065 Elx/Elche | Hombres | 2359
+    03 Alicante/Alacant | 03063 Dénia     | Hombres | 1098
+    03 Alicante/Alacant | 03063 Dénia     | Mujeres | 1011
+    03 Alicante/Alacant | 03065 Elx/Elche | Mujeres | 2346
+    03 Alicante/Alacant | 03065 Elx/Elche | Hombres | 2359
+    03 Alicante/Alacant | 03063 Dénia     | Hombres | 1098
+    03 Alicante/Alacant | 03063 Dénia     | Mujeres | 1011
+    03 Alicante/Alacant | 03066 Elda      | Mujeres | 630
+    03 Alicante/Alacant | 03066 Elda      | Hombres | 610
+    03 Alicante/Alacant | 03063 Dénia     | Hombres | 1100
+    03 Alicante/Alacant | 03063 Dénia     | Mujeres | 1020
 ----------------------------------------------------------------------------------------------------
 
-3. Salida tipo 'table' en DynamoDB (modo append):
+3. Salida tipo 'table' Delta (modo append):
 
-   La tabla 'demo' tiene 6 elementos insertados (modo append):
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '1098'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03063 Dénia#Hombres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '1011'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03063 Dénia#Mujeres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '2359'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03065 Elx/Elche#Hombres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '2346'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03065 Elx/Elche#Mujeres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '610'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03066 Elda#Hombres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '630'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03066 Elda#Mujeres#2026-08-24'}}
+   La tabla Delta 'demo' tiene 6 registros (modo append):
++-------------------+---------------+-------+-----------------+----------+
+|provincia          |municipio      |sexo   |total_ambos_sexos|load_date |
++-------------------+---------------+-------+-----------------+----------+
+|03 Alicante/Alacant|03063 Dénia    |Hombres|1098             |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia    |Mujeres|1011             |2026-09-04|
+|03 Alicante/Alacant|03065 Elx/Elche|Hombres|2359             |2026-09-04|
+|03 Alicante/Alacant|03065 Elx/Elche|Mujeres|2346             |2026-09-04|
+|03 Alicante/Alacant|03066 Elda     |Hombres|610              |2026-09-04|
+|03 Alicante/Alacant|03066 Elda     |Mujeres|630              |2026-09-04|
++-------------------+---------------+-------+-----------------+----------+
 
-4. Salida tipo 'table' en DynamoDB (modo merge):
 
-   La tabla 'raw_demo' tiene 6 elementos insertados (modo merge):
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '1098'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03063 Dénia#Hombres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '1011'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03063 Dénia#Mujeres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '2359'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03065 Elx/Elche#Hombres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '2346'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03065 Elx/Elche#Mujeres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '610'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03066 Elda#Hombres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '630'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03066 Elda#Mujeres'}}
+4. Salida tipo 'table' Delta (modo merge):
+
+   La tabla Delta 'raw_demo' tiene 12 registros (modo merge):
++-------------------+---------------+-------+-----------------+----------+
+|provincia          |municipio      |sexo   |total_ambos_sexos|load_date |
++-------------------+---------------+-------+-----------------+----------+
+|03 Alicante/Alacant|03065 Elx/Elche|Mujeres|2346             |2026-09-04|
+|03 Alicante/Alacant|03065 Elx/Elche|Hombres|2359             |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia    |Hombres|1098             |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia    |Mujeres|1011             |2026-09-04|
+|03 Alicante/Alacant|03065 Elx/Elche|Mujeres|2346             |2026-09-04|
+|03 Alicante/Alacant|03065 Elx/Elche|Hombres|2359             |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia    |Hombres|1098             |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia    |Mujeres|1011             |2026-09-04|
+|03 Alicante/Alacant|03066 Elda     |Mujeres|630              |2026-09-04|
+|03 Alicante/Alacant|03066 Elda     |Hombres|610              |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia    |Hombres|1100             |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia    |Mujeres|1020             |2026-09-04|
++-------------------+---------------+-------+-----------------+----------+
+
 
 ====================================================================================================
 ----------------------------------------------------------------------------------------------------
@@ -1175,25 +1234,25 @@ Ronda 2
 
     Contenido del archivo C:\Users\user\Documents\PycharmProjects\prueba_sgd_group\src\prueba_sgd_group/resources/data_reducido/demo/input/archivo_reducido_2025.csv (6 registros):
 
-    provincia          | municipio   | sexo        | total
+    ﻿provincia          | municipio   | sexo        | total
     --------------------+-------------+-------------+------
     03 Alicante/Alacant | 03063 Dénia | Ambos sexos | 2.120
     03 Alicante/Alacant | 03063 Dénia | Hombres     | 1.100
     03 Alicante/Alacant | 03063 Dénia | Mujeres     | 1.020
     03 Alicante/Alacant | 03066 Elda  | Ambos sexos | 1.240
-    03 Alicante/Alacant | 03066 Elda  | Hombres     | 610  
-    03 Alicante/Alacant | 03066 Elda  | Mujeres     | 630  
+    03 Alicante/Alacant | 03066 Elda  | Hombres     | 610
+    03 Alicante/Alacant | 03066 Elda  | Mujeres     | 630
 ----------------------------------------------------------------------------------------------------
 
 1. Salida tipo 'file' con save_mode overwrite (/data_reducido/demo/output/last):
 
    Contenido actual de las filas en el Parquet (4 registros):
-    provincia           | municipio   | sexo    | total_ambos_sexos | load_date 
+    provincia           | municipio   | sexo    | total_ambos_sexos | load_date
     --------------------+-------------+---------+-------------------+-----------
-    03 Alicante/Alacant | 03066 Elda  | Mujeres | 630               | 2026-08-24
-    03 Alicante/Alacant | 03063 Dénia | Mujeres | 1020              | 2026-08-24
-    03 Alicante/Alacant | 03066 Elda  | Hombres | 610               | 2026-08-24
-    03 Alicante/Alacant | 03063 Dénia | Hombres | 1100              | 2026-08-24
+    03 Alicante/Alacant | 03066 Elda  | Mujeres | 630               | 2026-09-04
+    03 Alicante/Alacant | 03066 Elda  | Hombres | 610               | 2026-09-04
+    03 Alicante/Alacant | 03063 Dénia | Hombres | 1100              | 2026-09-04
+    03 Alicante/Alacant | 03063 Dénia | Mujeres | 1020              | 2026-09-04
 
 2. Salida tipo 'file' con save_mode append (/data_reducido/demo/output/historic):
 
@@ -1201,46 +1260,65 @@ Ronda 2
 
     provincia           | municipio       | sexo    | total_ambos_sexos
     --------------------+-----------------+---------+------------------
-    03 Alicante/Alacant | 03066 Elda      | Mujeres | 630              
-    03 Alicante/Alacant | 03063 Dénia     | Mujeres | 1020             
-    03 Alicante/Alacant | 03066 Elda      | Hombres | 610              
-    03 Alicante/Alacant | 03063 Dénia     | Hombres | 1100             
-    03 Alicante/Alacant | 03066 Elda      | Mujeres | 630              
-    03 Alicante/Alacant | 03063 Dénia     | Mujeres | 1020             
-    03 Alicante/Alacant | 03066 Elda      | Hombres | 610              
-    03 Alicante/Alacant | 03063 Dénia     | Hombres | 1100             
-    03 Alicante/Alacant | 03063 Dénia     | Mujeres | 1011             
-    03 Alicante/Alacant | 03065 Elx/Elche | Hombres | 2359             
-    03 Alicante/Alacant | 03063 Dénia     | Hombres | 1098             
-    03 Alicante/Alacant | 03065 Elx/Elche | Mujeres | 2346             
-    03 Alicante/Alacant | 03063 Dénia     | Mujeres | 1011             
-    03 Alicante/Alacant | 03065 Elx/Elche | Hombres | 2359             
-    03 Alicante/Alacant | 03063 Dénia     | Hombres | 1098             
-    03 Alicante/Alacant | 03065 Elx/Elche | Mujeres | 2346             
+    03 Alicante/Alacant | 03065 Elx/Elche | Mujeres | 2346
+    03 Alicante/Alacant | 03065 Elx/Elche | Hombres | 2359
+    03 Alicante/Alacant | 03063 Dénia     | Hombres | 1098
+    03 Alicante/Alacant | 03063 Dénia     | Mujeres | 1011
+    03 Alicante/Alacant | 03065 Elx/Elche | Mujeres | 2346
+    03 Alicante/Alacant | 03065 Elx/Elche | Hombres | 2359
+    03 Alicante/Alacant | 03063 Dénia     | Hombres | 1098
+    03 Alicante/Alacant | 03063 Dénia     | Mujeres | 1011
+    03 Alicante/Alacant | 03066 Elda      | Mujeres | 630
+    03 Alicante/Alacant | 03066 Elda      | Hombres | 610
+    03 Alicante/Alacant | 03063 Dénia     | Hombres | 1100
+    03 Alicante/Alacant | 03063 Dénia     | Mujeres | 1020
+    03 Alicante/Alacant | 03066 Elda      | Mujeres | 630
+    03 Alicante/Alacant | 03066 Elda      | Hombres | 610
+    03 Alicante/Alacant | 03063 Dénia     | Hombres | 1100
+    03 Alicante/Alacant | 03063 Dénia     | Mujeres | 1020
 ----------------------------------------------------------------------------------------------------
 
-3. Salida tipo 'table' en DynamoDB (modo append):
+3. Salida tipo 'table' Delta (modo append):
 
-   La tabla 'demo' tiene 6 elementos insertados (modo append):
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '1100'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03063 Dénia#Hombres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '1020'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03063 Dénia#Mujeres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '2359'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03065 Elx/Elche#Hombres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '2346'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03065 Elx/Elche#Mujeres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '610'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03066 Elda#Hombres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '630'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03066 Elda#Mujeres#2026-08-24'}}
+   La tabla Delta 'demo' tiene 6 registros (modo append):
++-------------------+---------------+-------+-----------------+----------+
+|provincia          |municipio      |sexo   |total_ambos_sexos|load_date |
++-------------------+---------------+-------+-----------------+----------+
+|03 Alicante/Alacant|03063 Dénia    |Hombres|1100             |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia    |Mujeres|1020             |2026-09-04|
+|03 Alicante/Alacant|03065 Elx/Elche|Hombres|2359             |2026-09-04|
+|03 Alicante/Alacant|03065 Elx/Elche|Mujeres|2346             |2026-09-04|
+|03 Alicante/Alacant|03066 Elda     |Hombres|610              |2026-09-04|
+|03 Alicante/Alacant|03066 Elda     |Mujeres|630              |2026-09-04|
++-------------------+---------------+-------+-----------------+----------+
 
-4. Salida tipo 'table' en DynamoDB (modo merge):
 
-   La tabla 'raw_demo' tiene 6 elementos insertados (modo merge):
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '1100'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03063 Dénia#Hombres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '1020'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03063 Dénia#Mujeres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '2359'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03065 Elx/Elche#Hombres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '2346'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03065 Elx/Elche#Mujeres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '610'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03066 Elda#Hombres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '630'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03066 Elda#Mujeres'}}
+4. Salida tipo 'table' Delta (modo merge):
+
+   La tabla Delta 'raw_demo' tiene 16 registros (modo merge):
++-------------------+---------------+-------+-----------------+----------+
+|provincia          |municipio      |sexo   |total_ambos_sexos|load_date |
++-------------------+---------------+-------+-----------------+----------+
+|03 Alicante/Alacant|03065 Elx/Elche|Mujeres|2346             |2026-09-04|
+|03 Alicante/Alacant|03065 Elx/Elche|Hombres|2359             |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia    |Hombres|1098             |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia    |Mujeres|1011             |2026-09-04|
+|03 Alicante/Alacant|03065 Elx/Elche|Mujeres|2346             |2026-09-04|
+|03 Alicante/Alacant|03065 Elx/Elche|Hombres|2359             |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia    |Hombres|1098             |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia    |Mujeres|1011             |2026-09-04|
+|03 Alicante/Alacant|03066 Elda     |Mujeres|630              |2026-09-04|
+|03 Alicante/Alacant|03066 Elda     |Hombres|610              |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia    |Hombres|1100             |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia    |Mujeres|1020             |2026-09-04|
+|03 Alicante/Alacant|03066 Elda     |Mujeres|630              |2026-09-04|
+|03 Alicante/Alacant|03066 Elda     |Hombres|610              |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia    |Hombres|1100             |2026-09-04|
+|03 Alicante/Alacant|03063 Dénia    |Mujeres|1020             |2026-09-04|
++-------------------+---------------+-------+-----------------+----------+
+
 
 ====================================================================================================
-
 ```
 
 A partir de la ejecución completa en dos rondas proporcionada, las conclusiones clave sobre el comportamiento de cada estrategia de almacenamiento son las siguientes:
@@ -1476,225 +1554,13 @@ Ronda 2
 ----------------------------------------------------------------------------------------------------
 ```
 
-3. **Salida tipo `table` con save_mode `append` en la tabla `demo` de DynamoDB**
+3. **Salida tipo `table` con save_mode `append` en la tabla `demo`**
 
-A continuación analizamos qué filas se van a ir insertando en la tabla `demo` a lo largo de la ejecución de las dos rondas.
-
-tras procesar la primera ronda del archivo de entrada de 2024 vemos que la tabla `demo` contiene dos registros: 
-
-```shell
-====================================================================================================
-INFORME OVERWRITE, APPEND Y MERGE CON CSV REDUCIDOS
-====================================================================================================
-
-
-        A continuación vamos a leer los archivos csv de entrada de 2024 y 2025 en dos rondas, mostrando en cada una de ellas las
-        salidas overwrite, append y merge que hemos obtenido.
-        
-
-Ronda 1
-
-----------------------------------------------------------------------------------------------------
-
-[+] Leyendo archivo de entrada C:\Users\user\Documents\PycharmProjects\prueba_sgd_group\src\prueba_sgd_group/resources/data_reducido/demo/input/archivo_reducido_2024.csv
-
-...
-...
-...
-3. Salida tipo 'table' en DynamoDB (modo append):
-
-   La tabla 'demo' tiene 4 elementos insertados (modo append):
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '1098'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03063 Dénia#Hombres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '1011'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03063 Dénia#Mujeres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '2359'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03065 Elx/Elche#Hombres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '2346'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03065 Elx/Elche#Mujeres#2026-08-24'}}
-
-```
-
-A continuación se procesa el archivo de 2025 en la siguiente ronda, este es el contenido de la tabla `demo` tras guardar en modo append los registros resultantes de la transformación:
-
-```shell
-
-3. Salida tipo 'table' en DynamoDB (modo append):
-
-   La tabla 'demo' tiene 6 elementos insertados (modo append):
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '1100'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03063 Dénia#Hombres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '1020'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03063 Dénia#Mujeres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '2359'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03065 Elx/Elche#Hombres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '2346'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03065 Elx/Elche#Mujeres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '610'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03066 Elda#Hombres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '630'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03066 Elda#Mujeres#2026-08-24'}}
-```
-
-__Explicación detallada de lo que ha ocurrido en la primera ronda__
-
-Tras el procesado de 2024 csv se han insertado estos elementos en modo append en la tabla `demo`:
-
-- 03063 Dénia#Hombres (1098)
-- 03063 Dénia#Mujeres (1011)
-- 03065 Elx/Elche#Hombres (2359)
-- 03065 Elx/Elche#Mujeres (2346)
-
-
-
-A continuación seguimos con la segunda ronda, donde volvemos a procesar los mismos csv de entrada. Este es el resultado de reprocesar el csv de 2024:
-
-```shell
-Ronda 2
-
-----------------------------------------------------------------------------------------------------
-
-[+] Leyendo archivo de entrada C:\Users\user\Documents\PycharmProjects\prueba_sgd_group\src\prueba_sgd_group/resources/data_reducido/demo/input/archivo_reducido_2024.csv
-...
-3. Salida tipo 'table' en DynamoDB (modo append):
-
-   La tabla 'demo' tiene 6 elementos insertados (modo append):
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '1098'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo_date': {'S': '03063 Dénia#Hombres#2026-09-03'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '1011'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo_date': {'S': '03063 Dénia#Mujeres#2026-09-03'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '2359'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo_date': {'S': '03065 Elx/Elche#Hombres#2026-09-03'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '2346'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo_date': {'S': '03065 Elx/Elche#Mujeres#2026-09-03'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '610'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo_date': {'S': '03066 Elda#Hombres#2026-09-03'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '630'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo_date': {'S': '03066 Elda#Mujeres#2026-09-03'}}
-```
-
-A continuación se procesa 2025 en segunda ronda, siendo este el resultado:
-
-```shell
-Ronda 2
-
-----------------------------------------------------------------------------------------------------
-...
-
-[+] Leyendo archivo de entrada C:\Users\user\Documents\PycharmProjects\prueba_sgd_group\src\prueba_sgd_group/resources/data_reducido/demo/input/archivo_reducido_2025.csv
-
-3. Salida tipo 'table' en DynamoDB (modo append):
-
-   La tabla 'demo' tiene 6 elementos insertados (modo append):
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '1100'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo_date': {'S': '03063 Dénia#Hombres#2026-09-03'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '1020'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo_date': {'S': '03063 Dénia#Mujeres#2026-09-03'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '2359'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo_date': {'S': '03065 Elx/Elche#Hombres#2026-09-03'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '2346'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo_date': {'S': '03065 Elx/Elche#Mujeres#2026-09-03'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '610'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo_date': {'S': '03066 Elda#Hombres#2026-09-03'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '630'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo_date': {'S': '03066 Elda#Mujeres#2026-09-03'}}
-```
+HE REEMPLAZADO DYNAMODB POR DELTAS DE SPARK, EN BREVE ESPERO TENER LISTO EL ANÁLISIS.
 
 4. **Salida tipo 'table' en DynamoDB (Modo Merge)**
 
-
-A continuación analizamos qué filas se van a ir insertando en la tabla `raw_demo` a lo largo de la ejecución de las dos rondas.
-
-tras procesar la primera ronda del archivo de entrada de 2024 vemos  que la tabla `raw_demo` contiene cuatro registros: 
-
-```shell
-    ...
-====================================================================================================
-INFORME OVERWRITE, APPEND Y MERGE CON CSV REDUCIDOS
-====================================================================================================
-
-
-        A continuación vamos a leer los archivos csv de entrada de 2024 y 2025 en dos rondas, mostrando en cada una de ellas las
-        salidas overwrite, append y merge que hemos obtenido.
-        
-
-Ronda 1
-
-----------------------------------------------------------------------------------------------------
-
-[+] Leyendo archivo de entrada C:\Users\user\Documents\PycharmProjects\prueba_sgd_group\src\prueba_sgd_group/resources/data_reducido/demo/input/archivo_reducido_2024.csv
-...
-...
-
-4. Salida tipo 'table' en DynamoDB (modo merge):
-
-   La tabla 'raw_demo' tiene 4 elementos insertados (modo merge):
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '1098'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo': {'S': '03063 Dénia#Hombres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '1011'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo': {'S': '03063 Dénia#Mujeres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '2359'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo': {'S': '03065 Elx/Elche#Hombres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '2346'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo': {'S': '03065 Elx/Elche#Mujeres'}}
-
-```
-
-Continuando en la primera ronda, cuando se procesa el csv de 2025 vemos que la tabla sigue teniendo seis archivos insertados:
-
-```shell
-
-...
-[+] Leyendo archivo de entrada C:\Users\user\Documents\PycharmProjects\prueba_sgd_group\src\prueba_sgd_group/resources/data_reducido/demo/input/archivo_reducido_2025.csv
-...
-...
-...
-
-4. Salida tipo 'table' en DynamoDB (modo merge):
-
-   La tabla 'raw_demo' tiene 6 elementos insertados (modo merge):
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '1100'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo': {'S': '03063 Dénia#Hombres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '1020'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo': {'S': '03063 Dénia#Mujeres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '2359'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo': {'S': '03065 Elx/Elche#Hombres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '2346'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo': {'S': '03065 Elx/Elche#Mujeres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '610'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo': {'S': '03066 Elda#Hombres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '630'}, 'load_date': {'S': '2026-09-03'}, 'municipio_sexo': {'S': '03066 Elda#Mujeres'}}
-
-```
-
-La segunda ronda no varía el contenido de las tablas porque son los mismos valores, por lo que se mantienen las mismas claves y no se altera el conenido de las tablas.
-
-**Observaciones**
-
-Quería aclarar que la diferencia clave entre append y merge en DynamoDB está en la Clave de Partición (PK) que hemos utilizado.
-
-Aunque ambas tablas tengan 6 elementos al final del test, su el modo como se han insertado los valores no es el mismo.
-
-* __Modo `append` (Tabla `demo`):__
-
-Esta es su clave de partición: municipio_sexo_date (ejemplo: 03063 Dénia#Hombres#2026-08-24).
-
-Eligiéndola de ese modo conseguimos que para distintas distintas ejecuciones siempre se añadan nuevas filas:
-
- ► el procesamiento de 2024 insertó 4 registros en modo `append` en la tabla `demo`: 
-
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '1098'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03063 Dénia#Hombres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '1011'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03063 Dénia#Mujeres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '2359'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03065 Elx/Elche#Hombres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '2346'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03065 Elx/Elche#Mujeres#2026-08-24'}}
-     - 
- ► el procesamiento de 2025 insertó dos registros más para Elda, y sobreescribió los valores de Dénia y Elche porque ejecuté las dos inserciones en el mismo día: 
-
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '1100'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03063 Dénia#Hombres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '1020'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03063 Dénia#Mujeres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '2359'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03065 Elx/Elche#Hombres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '2346'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03065 Elx/Elche#Mujeres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '610'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03066 Elda#Hombres#2026-08-24'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '630'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo_date': {'S': '03066 Elda#Mujeres#2026-08-24'}}
-
-► Hay que indicar que si hubiese hecho el procesamiento del 2025 en un dia distinto al día que procesé el archivo de 2024, el modo append habría dejado la tabla `demo` con 8 registros en lugar de 6.
-
-* __Modo `merge` (Tabla `raw_demo`):__
-
-Esta es su clave de partición: municipio_sexo (ejemplo: 03063 Dénia#Hombres#2026-08-24). No incluye la fecha como hicimos en el modo `append`.
-
-Eligiéndola de ese modo conseguimos conseguimos que se modifique el registro en caso de existir, o que se añada si no existe:
-
- ► el procesamiento de 2024 insertó 4 registros en modo `merge` en la tabla `raw_demo`: 
-
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '1098'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03063 Dénia#Hombres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '1011'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03063 Dénia#Mujeres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '2359'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03065 Elx/Elche#Hombres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '2346'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03065 Elx/Elche#Mujeres'}}
-
- ► el procesamiento de 2025 insertó dos registros más para Elda, y sobreescribió los valores de Dénia y Elche porque ejecuté las dos inserciones en el mismo día: 
-
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '1100'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03063 Dénia#Hombres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03063 Dénia'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '1020'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03063 Dénia#Mujeres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '2359'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03065 Elx/Elche#Hombres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03065 Elx/Elche'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '2346'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03065 Elx/Elche#Mujeres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Hombres'}, 'total_ambos_sexos': {'N': '610'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03066 Elda#Hombres'}}
-     - {'provincia': {'S': '03 Alicante/Alacant'}, 'municipio': {'S': '03066 Elda'}, 'sexo': {'S': 'Mujeres'}, 'total_ambos_sexos': {'N': '630'}, 'load_date': {'S': '2026-08-24'}, 'municipio_sexo': {'S': '03066 Elda#Mujeres'}}
-
-**Conclusión final.** Aunque las salidas sean las mismas, sólo se debe a que la ejecución está hecha el mismo día:
-
-► Si el `merge` se ejecutase en días distintos seguiríamos teniendo 6 filas en `raw_demo`
-
-► Si el `append` se ejecutase en días distintos tendríamos 8 filas en `demo` en lugar de las 6 obtenidas.
+HE REEMPLAZADO DYNAMODB POR DELTAS DE SPARK, EN BREVE ESPERO TENER LISTO EL ANÁLISIS.
 
 ## Obtener un informe del porcentaje de cobertura de código en las pruebas
 

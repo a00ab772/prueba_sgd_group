@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import csv
+import shutil
 
 # Descomentad la linea para mostrar la salida logger.debug(...)
 # os.environ["LOG_LEVEL"] = "DEBUG"
@@ -46,9 +47,11 @@ MOCK_AWS_GLOBAL = None
 UNITTEST_LOAD_PATCHER_GLOBAL = None
 UNITTEST_SAVE_PATCHER_GLOBAL = None
 
+
 def setUpModule():
     global SPARK_HANDLER_GLOBAL, MOCK_AWS_GLOBAL, UNITTEST_LOAD_PATCHER_GLOBAL, UNITTEST_SAVE_PATCHER_GLOBAL
 
+    # Mock del servidor de Airflow
     # Mock del servidor de Airflow
     if "airflow" not in sys.modules:
         import types
@@ -83,6 +86,7 @@ def setUpModule():
         models_module.DAG = MockDAG
         python_module.PythonOperator = MockPythonOperator
 
+        # Mapeo completo en sys.modules para que coincida con la ruta de importación
         sys.modules["airflow"] = airflow_module
         sys.modules["airflow.models"] = models_module
         sys.modules["airflow.operators"] = operators_module
@@ -144,34 +148,6 @@ def setUpModule():
             Key=f"data/demo/input/{file_name}",
             Body=file_content
         )
-
-    dynamodb_client = boto3.client("dynamodb", region_name=os.getenv("AWS_DEFAULT_REGION", "eu-central-1"))
-
-    dynamodb_client.create_table(
-        TableName="demo",
-        KeySchema=[
-            {"AttributeName": "provincia", "KeyType": "HASH"},
-            {"AttributeName": "municipio_sexo_date", "KeyType": "RANGE"}
-        ],
-        AttributeDefinitions=[
-            {"AttributeName": "provincia", "AttributeType": "S"},
-            {"AttributeName": "municipio_sexo_date", "AttributeType": "S"}
-        ],
-        BillingMode="PAY_PER_REQUEST"
-    )
-
-    dynamodb_client.create_table(
-        TableName="raw_demo",
-        KeySchema=[
-            {"AttributeName": "provincia", "KeyType": "HASH"},
-            {"AttributeName": "municipio_sexo", "KeyType": "RANGE"}
-        ],
-        AttributeDefinitions=[
-            {"AttributeName": "provincia", "AttributeType": "S"},
-            {"AttributeName": "municipio_sexo", "AttributeType": "S"}
-        ],
-        BillingMode="PAY_PER_REQUEST"
-    )
 
     # Configuración local de Spark y Hadoop
     os.environ["HADOOP_HOME"] = "C:\\hadoop"
@@ -248,10 +224,16 @@ class TestBase(unittest.TestCase):
     def setUpClass(cls):
         cls.spark_handler = SPARK_HANDLER_GLOBAL
         cls.spark_session = cls.spark_handler.spark_session
-        cls.dynamodb_client = boto3.client("dynamodb", region_name=os.getenv("AWS_DEFAULT_REGION", "eu-central-1"))
         cls.s3_client = boto3.client("s3", region_name=os.getenv("AWS_DEFAULT_REGION", "eu-central-1"))
         cls.bucket_name = os.getenv("S3_BUCKET_CONFIG", "bucket-de-configuracion")
         cls.file_key = "metadata/metadata.json"
+
+    def setUp(self):
+        for table in ["demo", "raw_demo"]:
+            try:
+                self.spark_session.sql(f"DROP TABLE IF EXISTS {table}")
+            except Exception:
+                pass
 
 
 class Test_de_los_apartados_1_al_4(TestBase):
@@ -273,11 +255,26 @@ class Test_de_los_apartados_1_al_4(TestBase):
                 out_config = dataflow.get("outputs", [{}])[0].get("config", {})
                 table_name = out_config.get("table", "demo")
 
-                response = self.dynamodb_client.scan(TableName=table_name)
-                items_guardados = response.get("Items", [])
-                self.assertGreater(len(items_guardados), 0)
+                if self.spark_session.catalog.tableExists(table_name):
+                    df_tabla = self.spark_session.table(table_name)
+                    self.assertGreater(df_tabla.count(), 0)
+
 
 class TestOverwriteAppendMerge(TestBase):
+
+    def setUp(self):
+        super().setUp()
+        rutas_a_limpiar = [
+            f"{carpeta_resources}/data_reducido/demo/output",
+            f"{carpeta_resources}/data_1_registro/demo/output",
+            "spark-warehouse"
+        ]
+        for ruta in rutas_a_limpiar:
+            if os.path.exists(ruta):
+                try:
+                    shutil.rmtree(ruta)
+                except Exception:
+                    pass
 
     def _imprimir_contenido_csv(self, path_csv):
         logger.info("-" * 100)
@@ -406,27 +403,21 @@ class TestOverwriteAppendMerge(TestBase):
         logger.info("INFORME OVERWRITE, APPEND Y MERGE CON CSV CON 1 REGISTRO")
         logger.info("=" * 100)
         logger.info("""
-        
+
         A continuación vamos a leer los archivos csv de entrada de 2024 y 2025 en dos rondas, mostrando en cada una de ellas las
         salidas overwrite, append y merge que hemos obtenido.
         """)
         for ronda in [1, 2]:
             logger.info(f"\nRonda {ronda}\n")
             for year in ["2024", "2025"]:
-                self._imprimir_contenido_csv(f"{carpeta_resources}/data_1_registro/demo/input/archivo_1_registro_{year}.csv")
+                self._imprimir_contenido_csv(
+                    f"{carpeta_resources}/data_1_registro/demo/input/archivo_1_registro_{year}.csv")
 
                 df_transformado = self.spark_handler.interpretador_de_dataflow(dataflow=dataflow, year=year)
 
                 logger.info("\n1. Salida tipo 'file' con save_mode overwrite (/data_1_registro/demo/output/last):")
                 last_path = f"{carpeta_resources}/data_1_registro/demo/output/last"
                 if os.path.exists(last_path):
-                    files_last = [
-                        os.path.join(dp, f)
-                        for dp, dn, filenames in os.walk(last_path)
-                        for f in filenames
-                        if f.endswith(".parquet")
-                    ]
-
                     self._imprimir_contenido_parquet(last_path, df_transformado)
 
                 logger.info("\n2. Salida tipo 'file' con save_mode append (/data_1_registro/demo/output/historic):")
@@ -434,23 +425,23 @@ class TestOverwriteAppendMerge(TestBase):
                 if os.path.exists(carpeta_historic):
                     self._imprimir_contenido_parquet_historic_en_formato_csv(carpeta_historic)
 
-                logger.info("\n3. Salida tipo 'table' en DynamoDB (modo append):")
+                logger.info("\n3. Salida tipo 'table' Delta (modo append):")
                 nombre_tabla_demo = "demo"
-                response_demo = self.dynamodb_client.scan(TableName=nombre_tabla_demo)
-                items_demo = response_demo.get("Items", [])
-                logger.info(
-                    f"\n   La tabla '{nombre_tabla_demo}' tiene {response_demo.get('Count', 0)} elementos insertados (modo append):")
-                for item in items_demo:
-                    logger.info(f"     - {item}")
+                if self.spark_session.catalog.tableExists(nombre_tabla_demo):
+                    df_demo = self.spark_session.table(nombre_tabla_demo)
+                    logger.info(
+                        f"\n   La tabla Delta '{nombre_tabla_demo}' tiene {df_demo.count()} registros (modo append):")
+                    df_demo.show(truncate=False)
+                    self.assertGreater(df_demo.count(), 0)
 
-                logger.info("\n4. Salida tipo 'table' en DynamoDB (modo merge):")
+                logger.info("\n4. Salida tipo 'table' Delta (modo merge):")
                 nombre_tabla_raw = "raw_demo"
-                response_raw = self.dynamodb_client.scan(TableName=nombre_tabla_raw)
-                items_raw = response_raw.get("Items", [])
-                logger.info(
-                    f"\n   La tabla '{nombre_tabla_raw}' tiene {response_raw.get('Count', 0)} elementos insertados (modo merge):")
-                for item in items_raw:
-                    logger.info(f"     - {item}")
+                if self.spark_session.catalog.tableExists(nombre_tabla_raw):
+                    df_raw = self.spark_session.table(nombre_tabla_raw)
+                    logger.info(
+                        f"\n   La tabla Delta '{nombre_tabla_raw}' tiene {df_raw.count()} registros (modo merge):")
+                    df_raw.show(truncate=False)
+                    self.assertGreater(df_raw.count(), 0)
 
                 logger.info("\n" + "=" * 100)
 
@@ -474,18 +465,12 @@ class TestOverwriteAppendMerge(TestBase):
             for year in ["2024", "2025"]:
                 df_transformado = self.spark_handler.interpretador_de_dataflow(dataflow=dataflow, year=year)
 
-                self._imprimir_contenido_csv(f"{carpeta_resources}/data_reducido/demo/input/archivo_reducido_{year}.csv")
+                self._imprimir_contenido_csv(
+                    f"{carpeta_resources}/data_reducido/demo/input/archivo_reducido_{year}.csv")
 
                 logger.info("\n1. Salida tipo 'file' con save_mode overwrite (/data_reducido/demo/output/last):")
                 last_path = f"{carpeta_resources}/data_reducido/demo/output/last"
                 if os.path.exists(last_path):
-                    files_last = [
-                        os.path.join(dp, f)
-                        for dp, dn, filenames in os.walk(last_path)
-                        for f in filenames
-                        if f.endswith(".parquet")
-                    ]
-
                     self._imprimir_contenido_parquet(last_path, df_transformado)
 
                 logger.info("\n2. Salida tipo 'file' con save_mode append (/data_reducido/demo/output/historic):")
@@ -493,23 +478,23 @@ class TestOverwriteAppendMerge(TestBase):
                 if os.path.exists(carpeta_historic):
                     self._imprimir_contenido_parquet_historic_en_formato_csv(carpeta_historic)
 
-                logger.info("\n3. Salida tipo 'table' en DynamoDB (modo append):")
+                logger.info("\n3. Salida tipo 'table' Delta (modo append):")
                 nombre_tabla_demo = "demo"
-                response_demo = self.dynamodb_client.scan(TableName=nombre_tabla_demo)
-                items_demo = response_demo.get("Items", [])
-                logger.info(
-                    f"\n   La tabla '{nombre_tabla_demo}' tiene {response_demo.get('Count', 0)} elementos insertados (modo append):")
-                for item in items_demo:
-                    logger.info(f"     - {item}")
+                if self.spark_session.catalog.tableExists(nombre_tabla_demo):
+                    df_demo = self.spark_session.table(nombre_tabla_demo)
+                    logger.info(
+                        f"\n   La tabla Delta '{nombre_tabla_demo}' tiene {df_demo.count()} registros (modo append):")
+                    df_demo.show(truncate=False)
+                    self.assertGreater(df_demo.count(), 0)
 
-                logger.info("\n4. Salida tipo 'table' en DynamoDB (modo merge):")
+                logger.info("\n4. Salida tipo 'table' Delta (modo merge):")
                 nombre_tabla_raw = "raw_demo"
-                response_raw = self.dynamodb_client.scan(TableName=nombre_tabla_raw)
-                items_raw = response_raw.get("Items", [])
-                logger.info(
-                    f"\n   La tabla '{nombre_tabla_raw}' tiene {response_raw.get('Count', 0)} elementos insertados (modo merge):")
-                for item in items_raw:
-                    logger.info(f"     - {item}")
+                if self.spark_session.catalog.tableExists(nombre_tabla_raw):
+                    df_raw = self.spark_session.table(nombre_tabla_raw)
+                    logger.info(
+                        f"\n   La tabla Delta '{nombre_tabla_raw}' tiene {df_raw.count()} registros (modo merge):")
+                    df_raw.show(truncate=False)
+                    self.assertGreater(df_raw.count(), 0)
 
                 logger.info("\n" + "=" * 100)
 
@@ -520,7 +505,7 @@ class TestOverwriteAppendMerge(TestBase):
         dataflow = data_dict["dataflows"][0]
 
         logger.info("""
-        
+
          =================================
          INFORME overwrite, append y merge
          =================================
@@ -530,7 +515,8 @@ class TestOverwriteAppendMerge(TestBase):
             df_transformado = self.spark_handler.interpretador_de_dataflow(dataflow=dataflow, year=year)
             logger.info(f" [+] Año procesado: {year} | Total registros: {df_transformado.count()}")
 
-            logger.info("1. Salida tipo 'file' con save_mode overwrite (ubicación de salida: /data/demo/output/last) ...")
+            logger.info(
+                "1. Salida tipo 'file' con save_mode overwrite (ubicación de salida: /data/demo/output/last) ...")
             last_path = f"{carpeta_resources}/data/demo/output/last"
             if os.path.exists(last_path):
                 files_last = [os.path.join(dp, f) for dp, dn, filenames in os.walk(last_path) for f in filenames if
@@ -538,30 +524,57 @@ class TestOverwriteAppendMerge(TestBase):
                 logger.info(
                     f" [+] [OVERWRITE] Directorio '{last_path}' existe. Ficheros parquet encontrados tras finalizar bucle: {len(files_last)}")
 
-            logger.info("2. Salida tipo file con save_mode append y particionado (ubicació: /data/demo/output/historic)")
+            logger.info(
+                "2. Salida tipo file con save_mode append y particionado (ubicació: /data/demo/output/historic)")
             carpeta_historic = f"{carpeta_resources}/data/demo/output/historic"
             if os.path.exists(carpeta_historic):
                 partitions = os.listdir(carpeta_historic)
                 logger.info(
                     f" [+] [APPEND] Directorio '{carpeta_historic}' particionado. Particiones encontradas: {partitions}")
 
-            logger.info("3. Salida tipo table en DynamoDB (modo append)")
+            logger.info("3. Salida tipo table Delta (modo append)")
             nombre_tabla = "demo"
-            response = self.dynamodb_client.scan(TableName=nombre_tabla)
-            logger.info(f"La tabla {nombre_tabla} tiene {response.get('Count')} elementos insertados en modo append.")
+            if self.spark_session.catalog.tableExists(nombre_tabla):
+                count_table = self.spark_session.table(nombre_tabla).count()
+                logger.info(f"La tabla Delta '{nombre_tabla}' tiene {count_table} elementos insertados en modo append.")
+                self.assertGreater(count_table, 0)
 
-            logger.info("4. Salida tipo table en DynamoDB (modos merge)")
-            nombre_tabla = "raw_demo"
-            response = self.dynamodb_client.scan(TableName=nombre_tabla)
-            logger.info(f"La tabla {nombre_tabla} tiene {response.get('Count')} elementos insertados en modo merge.")
+            logger.info("4. Salida tipo table Delta (modo merge)")
+            nombre_tabla_raw = "raw_demo"
+            if self.spark_session.catalog.tableExists(nombre_tabla_raw):
+                count_table_raw = self.spark_session.table(nombre_tabla_raw).count()
+                logger.info(
+                    f"La tabla Delta '{nombre_tabla_raw}' tiene {count_table_raw} elementos insertados en modo merge.")
+                self.assertGreater(count_table_raw, 0)
 
             logger.info("==================================================\n")
+
 
 class TestAirflow(TestBase):
 
     def test_creacion_y_ejecucion_dag_airflow_mockeado(self):
         from airflow.models import DAG
         from airflow.providers.standard.operators.python import PythonOperator
+
+        # Limpieza previa del metastore y del directorio spark-warehouse
+        for table in ["demo", "raw_demo"]:
+            try:
+                self.spark_session.sql(f"DROP TABLE IF EXISTS {table}")
+            except Exception:
+                pass
+
+        rutas_a_limpiar = [
+            f"{carpeta_resources}/data/demo/output",
+            f"{carpeta_resources}/data_reducido/demo/output/spark-warehouse",
+            "spark-warehouse"
+        ]
+        for ruta in rutas_a_limpiar:
+            if os.path.exists(ruta):
+                try:
+                    shutil.rmtree(ruta)
+                except Exception:
+                    pass
+
         with DAG(
                 dag_id="planificacion_tarea_airflow",
                 start_date=datetime(2026, 8, 7),
@@ -585,6 +598,12 @@ class TestAirflow(TestBase):
                         count_ambos = df_result.filter("sexo == 'Ambos sexos'").count()
                         assert count_ambos == 0
 
+                        out_config = dataflow.get("outputs", [{}])[0].get("config", {})
+                        table_name = out_config.get("table", "demo")
+
+                        if self.spark_session.catalog.tableExists(table_name):
+                            assert self.spark_session.table(table_name).count() > 0
+
             task = PythonOperator(
                 task_id="ejecutar_interpretador_spark",
                 python_callable=lanza_interpretador_de_dataflow
@@ -599,7 +618,7 @@ class Test_del_apartado_5(TestBase):
     def test_filas_distintas_entre_csv_2024_y_csv_2025(self):
         logger.info("""
         La función test_filas_distintas_entre_csv_2024_y_csv_2025 quiere responder a la pregunta... 
-        
+
         ¿Qué filas han cambiado del fichero de 2024 al fichero de 2025?
         """)
         data2024 = (
@@ -621,7 +640,6 @@ class Test_del_apartado_5(TestBase):
         filas_solo_en_data2024 = data2024.exceptAll(data2025)
         filas_solo_en_data2025 = data2025.exceptAll(data2024)
 
-
         count_2024 = filas_solo_en_data2024.count()
         count_2025 = filas_solo_en_data2025.count()
 
@@ -637,21 +655,24 @@ class Test_del_apartado_5(TestBase):
         for fila in filas_solo_en_data2025.collect():
             logger.info(f" {fila.asDict()}")
 
-        logger.info(f"\n\n► Hay {count_2024} filas en el archivo data2024.csv que no existen en el archivo data2025.csv")
+        logger.info(
+            f"\n\n► Hay {count_2024} filas en el archivo data2024.csv que no existen en el archivo data2025.csv")
         self.assertEqual(count_2024, 8, msg=f"Error en filas 2024: Se esperaban 8 pero se obtuvieron {count_2024}")
 
         logger.info(f"\n► Hay {count_2025} filas en el archivo data2025.csv que no existen en el archivo data2024.csv")
-        self.assertEqual(count_2024, 8, msg=f"Error en la verificación del archivo data2024.csv: Se esperaban 8 filas que no estuvieran en el archivo data2025.csv, pero en realidad hay {count_2024} filas.")
-        self.assertEqual(count_2025, 8, msg=f"Error en la verificación del archivo data2025.csv: Se esperaban 8 filas que no estuvieran en el archivo data2024.csv, pero en realidad hay {count_2025} filas.")
+        self.assertEqual(count_2024, 8,
+                         msg=f"Error en la verificación del archivo data2024.csv: Se esperaban 8 filas que no estuvieran en el archivo data2025.csv, pero en realidad hay {count_2024} filas.")
+        self.assertEqual(count_2025, 8,
+                         msg=f"Error en la verificación del archivo data2025.csv: Se esperaban 8 filas que no estuvieran en el archivo data2024.csv, pero en realidad hay {count_2025} filas.")
 
     def test_discrepancias_en_datos_agregados_en_los_csv_de_entrada(self):
         logger.info("""
         La función test_discrepancias_en_datos_agregados_en_los_csv_de_entrada quiere responder a la pregunta... 
 
         ¿Qué problemas de calidad del dato tiene el fichero de 2025 (Ambos sexos != Hombres + Mujeres)?
-        
+
         Para resolverlo, agrego los datos del csv por provincia y municipio y comparo el resultado de sumar hombres y mujeres con el número consignado en la fila "Ambos sexos".
-        
+
         Nota: He extendido la evaluación para que ambos csv. 
         """)
         for year in ["2024", "2025"]:
@@ -709,6 +730,7 @@ class Test_del_apartado_5(TestBase):
                 msg=f"[{year}] La suma de municipios no coincide con el total de [(Ambos sexos == Hombres + Mujeres) + (Ambos sexos != Hombres + Mujeres)]"
             )
 
+
 def limpiar_hilos_al_finalizar_el_test_de_pycharm():
     try:
         active_spark = pyspark.sql.SparkSession.getActiveSession()
@@ -717,6 +739,7 @@ def limpiar_hilos_al_finalizar_el_test_de_pycharm():
     except Exception:
         pass
     os._exit(0)
+
 
 atexit.register(limpiar_hilos_al_finalizar_el_test_de_pycharm)
 

@@ -9,6 +9,7 @@ import boto3
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import current_date, lit
 import pyspark.sql.functions as F
+from delta.tables import DeltaTable
 
 log_level_str = os.getenv("LOG_LEVEL", "INFO").upper()
 log_level = getattr(logging, log_level_str, logging.INFO)
@@ -24,6 +25,7 @@ if not logger.handlers:
     logger.addHandler(handler)
 
 carpeta_resources = f"{os.path.abspath(os.path.dirname(__file__))}/resources"
+warehouse_dir = os.path.join(carpeta_resources, "data_reducido", "demo", "output", "spark-warehouse")
 
 
 class SparkHandler:
@@ -54,7 +56,7 @@ class SparkHandler:
             .config("spark.hadoop.fs.s3a.aws.credentials.provider",
                     "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider")
             .config("spark.databricks.delta.properties.defaults.autoOptimize.optimizeWrite", "true")
-            .config("spark.sql.warehouse.dir", "spark-warehouse")
+            .config("spark.sql.warehouse.dir", warehouse_dir)
             .config("spark.cleaner.referenceTracking.cleanCheckpoints", "true")
             .config("spark.files.fetchTimeout", "60")
             .config("spark.driver.memory", spark_driver_memory)
@@ -92,7 +94,6 @@ class SparkHandler:
 
             try:
                 df_loaded = reader.load(full_path)
-                # Limpieza de los puntos de millares en la columna total
                 if "total" in df_loaded.columns:
                     df_loaded = df_loaded.withColumn(
                         "total",
@@ -198,39 +199,45 @@ class SparkHandler:
 
             elif out_type == "table":
                 out_table_name = out_config["table"]
-                out_save_mode = out_config["save_mode"]
-                region_name = os.getenv("AWS_DEFAULT_REGION", "eu-central-1")
+                out_save_mode = str(out_config["save_mode"]).lower()
 
-                dynamodb_client = boto3.client("dynamodb", region_name=region_name)
+                ruta_salida_tabla = os.path.join(warehouse_dir, out_table_name)
 
-                rows = [row.asDict() for row in df_transformado.collect()]
+                if out_save_mode == "merge":
+                    condicion_merge = "target.municipio = source.municipio AND target.sexo = source.sexo"
 
-                for row_dict in rows:
-                    item = {}
-                    logger.debug("Conviertimos los campos a tipos de DynamoDB (S, N, BOOL)")
-                    for field, val in row_dict.items():
-                        if val is not None:
-                            if isinstance(val, (int, float)):
-                                item[field] = {"N": str(int(val) if isinstance(val, float) and val.is_integer() else val)}
-                            elif isinstance(val, bool):
-                                item[field] = {"BOOL": val}
-                            else:
-                                item[field] = {"S": str(val)}
+                    existe_tabla = DeltaTable.isDeltaTable(spark, ruta_salida_tabla) or spark.catalog.tableExists(out_table_name)
 
-                    mun = row_dict.get("municipio", "")
-                    sex = row_dict.get("sexo", "")
-                    ldate = row_dict.get("load_date", "")
-
-                    # Asignamos sort key distintas para simular el efecto de append o merge en la tabla correspondiente
-                    if out_table_name == "demo":
-                        item["municipio_sexo_date"] = {"S": f"{mun}#{sex}#{ldate}"}
-                    else:
-                        item["municipio_sexo"] = {"S": f"{mun}#{sex}"}
-
-                    if item:
-                        dynamodb_client.put_item(
-                            TableName=out_table_name,
-                            Item=item
+                    if existe_tabla:
+                        tabla_delta = DeltaTable.forPath(spark, ruta_salida_tabla) if DeltaTable.isDeltaTable(spark, ruta_salida_tabla) else DeltaTable.forName(spark, out_table_name)
+                        (
+                            tabla_delta.alias("target")
+                            .merge(df_transformado.alias("source"), condicion_merge)
+                            .whenMatchedUpdateAll()
+                            .whenNotMatchedInsertAll()
+                            .execute()
                         )
+                        logger.debug(f" [+] MERGE ejecutado en la tabla Delta '{out_table_name}'.\n\n")
+                    else:
+                        writer = df_transformado.write.format("delta").mode("append")
+                        if "partition" in out_config:
+                            writer = writer.partitionBy(out_config["partition"])
+
+                        writer.option("path", ruta_salida_tabla).saveAsTable(out_table_name)
+                        logger.debug(f" [+] Tabla Delta '{out_table_name}' creada e inicializada en '{ruta_salida_tabla}'.\n\n")
+                else:
+                    writer = df_transformado.write.format("delta").mode(out_save_mode)
+
+                    if out_save_mode == "overwrite":
+                        writer = writer.option("overwriteSchema", "true")
+
+                    if "partition" in out_config:
+                        writer = writer.partitionBy(out_config["partition"])
+
+                    writer.option("path", ruta_salida_tabla).saveAsTable(out_table_name)
+
+                    logger.debug(
+                        f" [+] Escritura en tabla Delta ===> '{out_table_name}' | Modo: '{out_save_mode}' | Ruta: '{ruta_salida_tabla}'.\n\n"
+                    )
 
         return df_transformado
